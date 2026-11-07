@@ -13,7 +13,14 @@ License: GPL (>= 3)
 Encoding: UTF-8
 Roxygen: list(markdown = TRUE)
 Depends: R (>= 4.6.0)
-Imports: cli, rlang, tibble
-Suggests: testthat (>= 3.0.0)
+Imports: 
+    askpass,
+    cli,
+    rlang,
+    sodium,
+    tibble,
+    withr
+Suggests: 
+    testthat (>= 3.0.0)
 Config/testthat/edition: 3
 Config/roxygen2/version: 8.1.1
