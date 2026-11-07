@@ -27,7 +27,11 @@ Imports:
 Suggests: 
     furrr,
     future,
+    knitr,
+    rmarkdown,
     testthat (>= 3.0.0),
     vdiffr
 Config/testthat/edition: 3
 Config/roxygen2/version: 8.1.1
+LazyData: true
+VignetteBuilder: knitr
