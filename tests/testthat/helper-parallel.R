@@ -1,5 +1,5 @@
 package_is_installed <- function() {
-  nzchar(system.file("Meta", "package.rds", package = "grace"))
+  nzchar(system.file("Meta", "package.rds", package = "graceDR"))
 }
 
 install_package_for_workers <- function(env = parent.frame()) {

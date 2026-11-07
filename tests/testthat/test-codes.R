@@ -81,7 +81,7 @@ test_that("void_code only voids used codes", {
 })
 
 test_that("example codes ship with the package", {
-  path <- system.file("extdata", "example_codes.csv", package = "grace")
+  path <- system.file("extdata", "example_codes.csv", package = "graceDR")
 
   codes <- read_codes(path, c("A", "B"))
 

@@ -1,4 +1,4 @@
 library(testthat)
-library(grace)
+library(graceDR)
 
-test_check("grace")
+test_check("graceDR")

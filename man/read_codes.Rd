@@ -20,5 +20,5 @@ The file is a CSV with columns \code{code} and \code{arm}. Every code must be no
 and unique, and every arm must be one of \code{arms}.
 }
 \examples{
-read_codes(system.file("extdata", "example_codes.csv", package = "grace"), c("A", "B"))
+read_codes(system.file("extdata", "example_codes.csv", package = "graceDR"), c("A", "B"))
 }

@@ -1,6 +1,6 @@
-# grace
+# graceDR
 
-grace randomizes clinical trial participants one at a time into two or more arms. It uses a
+graceDR randomizes clinical trial participants one at a time into two or more arms. It uses a
 modified minimal sufficient balance algorithm with weighted balance variables, an
 exact-allocation run-in, and forced allocation at chosen enrollment totals. The trial is
 stored in an encrypted file with an audit log, every past assignment can be replayed, and the
@@ -16,7 +16,7 @@ pak::pak("BiostatDoc/grace")
 ## Example
 
 ``` r
-library(grace)
+library(graceDR)
 Sys.setenv(GRACE_PASSPHRASE = "example-only")
 design <- example_design(40)
 path <- tempfile(fileext = ".rds")
@@ -32,9 +32,9 @@ passphrase above is only for made-up data.
 
 ## Learn more
 
-The [vignette](vignettes/grace.Rmd) walks through a full trial: the design, randomizing
+The [vignette](vignettes/graceDR.Rmd) walks through a full trial: the design, randomizing
 participants, balance reports and plots, overrides, the audit log, replay, and simulation.
-After installing, run `vignette("grace", package = "grace")`.
+After installing, run `vignette("graceDR", package = "graceDR")`.
 
 ## License
 
