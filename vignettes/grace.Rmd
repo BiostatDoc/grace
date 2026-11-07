@@ -1,0 +1,205 @@
+---
+title: "Randomizing a trial with grace"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Randomizing a trial with grace}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>",
+  fig.width = 6,
+  fig.height = 4
+)
+```
+
+grace randomizes clinical trial participants one at a time into two or more arms. It uses
+a modified minimal sufficient balance (MSB) algorithm with weighted balance variables, an
+exact-allocation run-in, and forced allocation at chosen enrollment totals. The trial lives
+in one encrypted file, every change is written to an audit log, and any past assignment can
+be replayed.
+
+This vignette walks through a small made-up trial of 40 participants.
+
+## Install
+
+```{r install, eval = FALSE}
+pak::pak("BiostatDoc/grace")
+```
+
+```{r setup}
+library(grace)
+```
+
+## Describe the design
+
+A design lists the number of participants, the balance variables, the arms, and the
+allocation ratio. `example_design()` builds a small one with two arms (`A` and `B`) in a 1:1
+ratio and balance variables `sex`, `race`, and `age`.
+
+```{r design}
+design <- example_design(40)
+design
+```
+
+The run-in is the first stretch of enrollment where counts are held to exact targets. The
+checkpoints show the group sizes the algorithm will reach exactly.
+
+## Choose a passphrase
+
+The trial file is encrypted with a passphrase that grace reads from the `GRACE_PASSPHRASE`
+environment variable. This vignette sets it in the code only because the data are made up.
+
+```{r passphrase}
+Sys.setenv(GRACE_PASSPHRASE = "vignette-only")
+```
+
+For a real trial, never write the passphrase in a script. Keep it in your `.Renviron` file
+or in a `.env` file that is listed in `.gitignore`, and keep a copy in a password manager.
+Nobody can read the trial file without it.
+
+## Create the trial
+
+`create_trial()` writes the encrypted file. The seed makes the random draws reproducible, and
+the optional codes file lists the treatment codes to hand out, one set per arm. The package
+ships a made-up codes file.
+
+```{r create}
+path <- tempfile(fileext = ".rds")
+codes_file <- system.file("extdata", "example_codes.csv", package = "grace")
+create_trial(path, design, seed = 20260611, codes = codes_file)
+```
+
+## Randomize participants
+
+`example_participants` holds 40 made-up participants. Each call to `randomize()` assigns one
+participant, saves the record and an audit row, and returns the assignment.
+
+```{r randomize}
+head(example_participants)
+
+assignments <- vector("list", nrow(example_participants))
+for (j in seq_len(nrow(example_participants))) {
+  participant <- example_participants[j, ]
+  assignments[[j]] <- randomize(
+    path,
+    participant$id,
+    participant[c("sex", "race", "age")]
+  )
+}
+assignments[[1]]
+```
+
+Each assignment records the probabilities that were used and the phase of the algorithm:
+`runin`, `quota`, `bound`, `msb-biased`, or `msb-random`.
+
+```{r phases}
+table(vapply(assignments, \(assignment) assignment$phase, character(1)))
+```
+
+## Check the balance
+
+`trial_status()` reads the file without randomizing anyone. It reports group sizes, balance
+tables, and standardized mean differences (SMDs), with two plots.
+
+```{r status}
+status <- trial_status(path)
+status$group_sizes
+status$balance
+```
+
+Categorical variables show a count and percentage in each arm. Continuous variables show the
+mean and standard deviation.
+
+The first plot shows how far each arm is from its target size as enrollment goes on. The
+second shows the largest SMD for each balance variable.
+
+```{r imbalance-plot}
+status$imbalance_plot
+```
+
+```{r smd-plot}
+status$smd_plot
+```
+
+The report can be narrowed with `from`, `to`, `checkpoint`, and `vars`. For example, the
+balance at the end of the run-in:
+
+```{r run-in}
+trial_status(path, checkpoint = "run-in")$group_sizes
+```
+
+## Override an assignment
+
+Sometimes the unblinded statistician must change an assignment, for example after a data
+entry error. `override_assignment()` is the only supported way to do it. It requires a
+reason, voids the old treatment code, and draws a new one.
+
+```{r override}
+current_arm <- assignments[[3]]$arm
+new_arm <- setdiff(design$arms, current_arm)
+override_assignment(
+  path,
+  "P003",
+  new_arm,
+  reason = "Randomized with the wrong race in the example."
+)
+```
+
+## Read the audit log
+
+Every action is appended to the audit log, and nothing can edit or delete a row.
+
+```{r audit}
+log <- audit_log(path)
+nrow(log)
+tail(log, 3)
+```
+
+## Replay assignments
+
+An auditor can redraw any assignment from the stored random number state and compare it with
+the record. For an overridden participant the comparison uses the original assignment, which
+the audit log keeps.
+
+```{r replay}
+replay_assignment(path, "P003")
+
+replays <- do.call(
+  rbind,
+  lapply(example_participants$id, \(id) replay_assignment(path, id))
+)
+all(replays$match)
+```
+
+## Simulate operating characteristics
+
+Before a trial starts, `simulate_trials()` compares the algorithm with simple random
+allocation, permuted blocks, minimization, and unmodified MSB on the same synthetic
+participants. This small run uses 20 simulated trials; a real study would use 1000 or more.
+Set `parallel = TRUE` after choosing a backend with `future::plan()` to run them in parallel.
+
+```{r simulate}
+simulation <- simulate_trials(
+  design,
+  n_sims = 20,
+  generator = example_generator_iid(),
+  seed = 1
+)
+simulation
+```
+
+`summary()` gives the mean, standard deviation, 95th and 99th percentiles, and maximum of each
+metric over the simulated trials. The upper percentiles show the worst cases.
+
+```{r summary}
+results <- summary(simulation)
+keep <- results$metric %in% c("smd_max", "correct_guess") & results$point %in% c("end", "all")
+results[keep, c("method", "metric", "mean", "q95", "max")]
+```
+
+A smaller `smd_max` means better balance, and a `correct_guess` percentage near 50 for two
+arms means the next assignment is hard to predict.
