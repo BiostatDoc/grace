@@ -19,7 +19,8 @@ participant is still randomized.}
 }
 \value{
 A list of class \code{grace_assignment} with elements \code{id}, \code{arm}, \code{code},
-\code{probs}, \code{phase}, and \code{n_randomized}.
+\code{probs}, \code{phase}, \code{n_randomized}, and \code{status} (a \code{grace_status} report that
+includes this participant).
 }
 \description{
 Assigns the next participant to an arm, saves the record, the treatment code

@@ -44,7 +44,7 @@ test_that("randomize returns a grace_assignment", {
   expect_s3_class(assignment, "grace_assignment")
   expect_identical(
     names(assignment),
-    c("id", "arm", "code", "probs", "phase", "n_randomized")
+    c("id", "arm", "code", "probs", "phase", "n_randomized", "status")
   )
   expect_identical(assignment$id, "P001")
   expect_true(assignment$arm %in% c("A", "B"))
