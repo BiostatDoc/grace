@@ -4,7 +4,10 @@ format:
 	Rscript -e "styler::style_pkg()"
 
 lint:
-	Rscript -e "l <- lintr::lint_package(); print(l); quit(status = length(l) > 0)"
+	Rscript -e "pkgload::load_all(quiet = TRUE); \
+		l <- lintr::lint_package(); \
+		print(l); \
+		quit(status = length(l) > 0)"
 
 test:
 	Rscript -e "devtools::test(stop_on_failure = TRUE)"
