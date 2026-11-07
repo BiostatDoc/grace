@@ -162,16 +162,6 @@ test_that("simulate_trials requires a seed", {
   expect_error(simulate_trials(design, n_sims = 2), class = "grace_error_simulate")
 })
 
-test_that("simulate_trials errors for parallel runs until they are added", {
-  design <- small_design_2arm()
-
-  expect_error(
-    simulate_trials(design, n_sims = 2, seed = 1, parallel = TRUE),
-    "GRACE-23",
-    class = "grace_error_simulate"
-  )
-})
-
 test_that("simulate_trials validates its inputs", {
   design <- small_design_2arm()
   cases <- list(
