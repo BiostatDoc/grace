@@ -10,7 +10,7 @@
 #'   and `drawn_event`.
 #' @export
 #' @examples
-#' read_codes(system.file("extdata", "example_codes.csv", package = "grace"), c("A", "B"))
+#' read_codes(system.file("extdata", "example_codes.csv", package = "graceDR"), c("A", "B"))
 read_codes <- function(file, arms) {
   raw <- utils::read.csv(file, colClasses = "character", strip.white = TRUE)
   missing_columns <- setdiff(c("code", "arm"), names(raw))

@@ -1,6 +1,6 @@
-Package: grace
+Package: graceDR
 Title: Dynamic Covariate-Adaptive Randomization for Clinical Trials
-Version: 0.0.0.9000
+Version: 0.1.0
 Authors@R: c(
     person("Grace Huiyi", "Ma", role = "aut"),
     person("James W.", "Hardin", email = "jhardin@sc.edu", role = c("aut", "cre"))

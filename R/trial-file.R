@@ -34,7 +34,7 @@ create_trial <- function(path, design, seed, codes = NULL, passphrase = trial_pa
   trial <- structure(
     list(
       format_version = 1L,
-      package_version = as.character(utils::packageVersion("grace")),
+      package_version = as.character(utils::packageVersion("graceDR")),
       design = design,
       seed = as.integer(seed),
       rng = new_trial_rng(as.integer(seed)),

@@ -13,7 +13,7 @@ test_that("create_trial then read_trial round-trips", {
   expect_identical(result, path)
   expect_s3_class(trial, "grace_trial")
   expect_identical(trial$format_version, 1L)
-  expect_identical(trial$package_version, as.character(utils::packageVersion("grace")))
+  expect_identical(trial$package_version, as.character(utils::packageVersion("graceDR")))
   expect_identical(trial$design, design)
   expect_identical(trial$seed, 123L)
   expect_identical(trial$rng, new_trial_rng(123L))

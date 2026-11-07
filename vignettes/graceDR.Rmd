@@ -1,8 +1,8 @@
 ---
-title: "Randomizing a trial with grace"
+title: "Randomizing a trial with graceDR"
 output: rmarkdown::html_vignette
 vignette: >
-  %\VignetteIndexEntry{Randomizing a trial with grace}
+  %\VignetteIndexEntry{Randomizing a trial with graceDR}
   %\VignetteEngine{knitr::rmarkdown}
   %\VignetteEncoding{UTF-8}
 ---
@@ -16,7 +16,7 @@ knitr::opts_chunk$set(
 )
 ```
 
-grace randomizes clinical trial participants one at a time into two or more arms. It uses
+graceDR randomizes clinical trial participants one at a time into two or more arms. It uses
 a modified minimal sufficient balance (MSB) algorithm with weighted balance variables, an
 exact-allocation run-in, and forced allocation at chosen enrollment totals. The trial lives
 in one encrypted file, every change is written to an audit log, and any past assignment can
@@ -31,7 +31,7 @@ pak::pak("BiostatDoc/grace")
 ```
 
 ```{r setup}
-library(grace)
+library(graceDR)
 ```
 
 ## Describe the design
@@ -69,7 +69,7 @@ ships a made-up codes file.
 
 ```{r create}
 path <- tempfile(fileext = ".rds")
-codes_file <- system.file("extdata", "example_codes.csv", package = "grace")
+codes_file <- system.file("extdata", "example_codes.csv", package = "graceDR")
 create_trial(path, design, seed = 20260611, codes = codes_file)
 ```
 
