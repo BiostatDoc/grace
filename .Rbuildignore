@@ -1,0 +1,15 @@
+^docs$
+^JSSarticle$
+^data-raw$
+^Makefile$
+^\.lintr$
+^renv$
+^renv\.lock$
+^\.Rprofile$
+^\.github$
+^\.claude$
+^ProjectDescription\.md$
+^ProjectReport\.md$
+^LICENSE\.md$
+^.*\.Rproj$
+^\.Rproj\.user$

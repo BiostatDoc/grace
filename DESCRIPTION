@@ -1,0 +1,18 @@
+Package: grace
+Title: Dynamic Covariate-Adaptive Randomization for Clinical Trials
+Version: 0.0.0.9000
+Authors@R: c(
+    person("Grace Huiyi", "Ma", role = "aut"),
+    person("James W.", "Hardin", email = "jhardin@sc.edu", role = c("aut", "cre"))
+  )
+Description: Randomizes clinical trial participants one at a time into k arms using a
+    modified minimal sufficient balance algorithm with weighted balance variables,
+    an exact-allocation run-in, and forced allocation at chosen enrollment totals.
+    Stores the trial in an encrypted file and simulates operating characteristics.
+License: GPL (>= 3)
+Encoding: UTF-8
+Roxygen: list(markdown = TRUE)
+Depends: R (>= 4.6.0)
+Imports: cli, rlang
+Suggests: testthat (>= 3.0.0)
+Config/testthat/edition: 3
