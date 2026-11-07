@@ -12,7 +12,8 @@
 #' @param passphrase Trial file passphrase.
 #'
 #' @return A list of class `grace_assignment` with elements `id`, `arm`, `code`,
-#'   `probs`, `phase`, and `n_randomized`.
+#'   `probs`, `phase`, `n_randomized`, and `status` (a `grace_status` report that
+#'   includes this participant).
 #' @export
 #' @examples
 #' path <- tempfile(fileext = ".rds")
@@ -59,7 +60,8 @@ randomize <- function(path, id, values, passphrase = trial_passphrase()) {
       code = code,
       probs = result$probs,
       phase = result$phase,
-      n_randomized = nrow(trial$records)
+      n_randomized = nrow(trial$records),
+      status = build_status(trial$records, trial$design)
     ),
     class = "grace_assignment"
   )
