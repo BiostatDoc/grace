@@ -1,0 +1,15 @@
+.Rproj.user/
+.Rhistory
+.RData
+.Ruserdata
+*.Rproj
+.Renviron
+.env
+renv/library/
+renv/staging/
+renv/local/
+inst/doc
+docs/
+*.tar.gz
+*.Rcheck/
+.claude/worktrees/
