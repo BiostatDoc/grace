@@ -25,7 +25,9 @@ such as one from \code{\link[=design_generator]{design_generator()}}.}
 
 \item{seed}{A single number that fixes all random draws. Required.}
 
-\item{parallel}{Reserved for parallel runs. \code{TRUE} is not available yet.}
+\item{parallel}{Run the simulations in parallel with the furrr and future
+packages. Choose the backend first with \code{future::plan()}. Results are
+identical to a sequential run.}
 }
 \value{
 A tibble of class \code{grace_sim} with columns \code{sim}, \code{method}, \code{point},

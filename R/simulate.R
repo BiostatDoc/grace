@@ -61,6 +61,14 @@ minimization_breaks <- function(generator, design, seed) {
   )
 }
 
+map_sims <- function(sims, run_one, parallel) {
+  if (!parallel) {
+    return(lapply(sims, run_one))
+  }
+  rlang::check_installed(c("furrr", "future"))
+  furrr::future_map(sims, run_one, .options = furrr::furrr_options(seed = NULL))
+}
+
 simulate_one <- function(sim, seed, methods, generator, design, breaks) {
   withr::with_seed(seed, {
     stream <- generator(design$n_total)
@@ -114,7 +122,9 @@ check_simulation_inputs <- function(design, methods, n_sims, seed) {
 #' @param generator A function of `n` that returns a tibble of `n` participants,
 #'   such as one from [design_generator()].
 #' @param seed A single number that fixes all random draws. Required.
-#' @param parallel Reserved for parallel runs. `TRUE` is not available yet.
+#' @param parallel Run the simulations in parallel with the furrr and future
+#'   packages. Choose the backend first with `future::plan()`. Results are
+#'   identical to a sequential run.
 #'
 #' @return A tibble of class `grace_sim` with columns `sim`, `method`, `point`,
 #'   `metric`, and `value`, and attributes `design`, `seed`, `n_sims`, and
@@ -135,15 +145,10 @@ simulate_trials <- function(
     abort_simulate("{.arg seed} is required.")
   }
   check_simulation_inputs(design, methods, n_sims, seed)
-  if (isTRUE(parallel)) {
-    abort_simulate("Parallel runs will be added in GRACE-23.")
-  }
   breaks <- if ("minimization" %in% methods) minimization_breaks(generator, design, seed)
   seeds <- withr::with_seed(seed, sample.int(.Machine$integer.max, n_sims))
-  per_sim <- lapply(
-    seq_len(n_sims),
-    \(sim) simulate_one(sim, seeds[[sim]], methods, generator, design, breaks)
-  )
+  run_one <- \(sim) simulate_one(sim, seeds[[sim]], methods, generator, design, breaks)
+  per_sim <- map_sims(seq_len(n_sims), run_one, isTRUE(parallel))
   results <- do.call(rbind, per_sim)
   structure(
     results,
