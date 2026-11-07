@@ -16,9 +16,12 @@ Depends: R (>= 4.6.0)
 Imports: 
     askpass,
     cli,
+    dplyr,
+    purrr,
     rlang,
     sodium,
     tibble,
+    tidyr,
     withr
 Suggests: 
     testthat (>= 3.0.0)
