@@ -1,0 +1,997 @@
+---
+title: "[graceDR]{.pkg}: Modified Minimal Sufficient Balance Randomization with Exact Group Sizes in [R]{.proglang}"
+title-plain: "graceDR: Modified Minimal Sufficient Balance Randomization with Exact Group Sizes in R"
+short-title: "graceDR: Modified MSB randomization"
+author:
+  - name: Grace Huiyi Ma
+    affiliations:
+      - name: Dutch Fork High School STEM Magnet Program
+        city: Irmo
+        region: South Carolina
+        country: United States
+  - name: James W. Hardin
+    email: jhardin@sc.edu
+    affiliations:
+      - name: University of South Carolina
+        department: Department of Epidemiology and Biostatistics
+        city: Columbia
+        region: SC
+        country: United States
+abstract: |
+  Minimal sufficient balance (MSB) randomization balances baseline covariates
+  while preserving the randomness of allocation, but it does not guarantee
+  prescribed group sizes, and the usual remedy of capping the arm sizes forces
+  long runs of predictable assignments. [graceDR]{.pkg} is an [R]{.proglang}
+  package for a modified MSB procedure. It adds an exact-allocation run-in,
+  forced allocation at enrollment totals chosen in advance and at the final
+  sample size, any number of arms with unequal allocation ratios, and a base
+  probability computed from the places left before the next forced total. The
+  package keeps each trial in an encrypted file with an append-only audit log,
+  records overrides with their reasons, replays any past assignment, and
+  simulates operating characteristics. We simulated 1,000 trials in each of four
+  settings (200 or 500 participants, with and without drift in the enrolled
+  population) and compared the procedure with simple randomization, permuted
+  blocks, minimization, and unmodified MSB. The modified procedure met the
+  run-in and final group sizes in every trial, whereas unmodified MSB missed the
+  final sizes by a mean of 5.7 to 10.7 participants. Its mean largest
+  standardized difference at the end of enrollment (0.094 to 0.163) was lower
+  than for simple randomization and permuted blocks and higher than for
+  unmodified MSB and for minimization, which had the smallest differences (0.036
+  to 0.077). Its expected correct-guess probability was 58.5% to 59.4%, compared
+  with 70.8% for permuted blocks of size four and 61.6% to 62.2% for
+  minimization. The package gives exact group sizes at chosen totals with less
+  predictability than permuted blocks, at a modest cost in covariate balance
+  relative to MSB. In these simulations minimization balanced covariates better
+  but did not guarantee group sizes.
+keywords: [covariate-adaptive randomization, minimal sufficient balance, dynamic randomization, allocation randomness, R]
+keywords-formatted: [covariate-adaptive randomization, minimal sufficient balance, dynamic randomization, allocation randomness, "[R]{.proglang}"]
+format:
+  jss-pdf:
+    keep-tex: false
+bibliography: references.bib
+execute:
+  echo: false
+  warning: false
+  message: true
+---
+
+```{r}
+#| label: setup
+#| include: false
+
+options(
+  cli.unicode = FALSE,
+  cli.num_colors = 1,
+  cli.width = 70,
+  width = 70,
+  pillar.width = 70,
+  pillar.bold = FALSE
+)
+knitr::opts_chunk$set(prompt = TRUE, comment = NA)
+library("graceDR")
+
+results_directory <- "results"
+cells <- c("N200_iid", "N200_drift", "N500_iid", "N500_drift")
+if (!all(file.exists(file.path(results_directory, paste0("sim_", cells, ".rds"))))) {
+  stop("Run `Rscript run_simulations.R` first to create the files in results/.")
+}
+settings <- readRDS(file.path(results_directory, "settings.rds"))
+sims <- lapply(
+  stats::setNames(cells, cells),
+  \(cell) readRDS(file.path(results_directory, paste0("sim_", cell, ".rds")))
+)
+
+method_order <- c("srs", "blocks", "minimization", "msb", "mmsb")
+method_label <- c(
+  srs = "Simple randomization", blocks = "Permuted blocks", minimization = "Minimization",
+  msb = "MSB", mmsb = "Modified MSB"
+)
+cell_label <- c(
+  N200_iid = "N = 200, iid", N200_drift = "N = 200, drift",
+  N500_iid = "N = 500, iid", N500_drift = "N = 500, drift"
+)
+
+per_sim <- function(sim, point, metric) {
+  keep <- sim$point == point & sim$metric == metric
+  wide <- tapply(sim$value[keep], list(sim$sim[keep], sim$method[keep]), identity)
+  wide[, method_order, drop = FALSE]
+}
+standard_error <- function(x) stats::sd(x) / sqrt(length(x))
+column_se <- function(x) apply(x, 2, standard_error)
+
+summarize_cell <- function(sim) {
+  smd_end <- per_sim(sim, "end", "smd_max")
+  smd_runin <- per_sim(sim, "run-in", "smd_max")
+  guess <- per_sim(sim, "all", "correct_guess")
+  forced <- per_sim(sim, "all", "pct_deterministic")
+  run <- per_sim(sim, "all", "longest_forced_run")
+  deviation_end <- per_sim(sim, "end", "size_dev_A")
+  deviation_runin <- per_sim(sim, "run-in", "size_dev_A")
+  paired <- function(x) {
+    others <- setdiff(method_order, "mmsb")
+    d <- x[, others, drop = FALSE] - x[, "mmsb"]
+    data.frame(
+      method = others, mean = colMeans(d), se = column_se(d),
+      lower = colMeans(d) - 1.96 * column_se(d), upper = colMeans(d) + 1.96 * column_se(d)
+    )
+  }
+  list(
+    smd_end = data.frame(
+      mean = colMeans(smd_end), se = column_se(smd_end),
+      q95 = apply(smd_end, 2, stats::quantile, 0.95)
+    ),
+    smd_runin_mean = colMeans(smd_runin),
+    deviation_mean = colMeans(deviation_end), deviation_max = apply(deviation_end, 2, max),
+    exact_end = 100 * colMeans(deviation_end == 0),
+    exact_runin = 100 * colMeans(deviation_runin == 0),
+    guess = data.frame(mean = colMeans(guess), se = column_se(guess)),
+    forced_mean = colMeans(forced), forced_max = apply(forced, 2, max),
+    run_mean = colMeans(run), run_max = apply(run, 2, max),
+    paired_smd = paired(smd_end), paired_guess = paired(guess)
+  )
+}
+S <- lapply(sims, summarize_cell)
+
+code <- function(...) {
+  paste0("\\code{", gsub("_", "\\_", c(...), fixed = TRUE), "}", collapse = ", ")
+}
+ragged <- function(width) paste0(">{\\raggedright\\arraybackslash}p{", width, "}")
+
+f1 <- function(x) formatC(x, format = "f", digits = 1)
+f2 <- function(x) formatC(x, format = "f", digits = 2)
+f3 <- function(x) formatC(x, format = "f", digits = 3)
+n_sims <- settings$n_sims
+```
+
+## Introduction {#sec-intro}
+
+In many clinical trials participants become eligible one at a time and must
+be assigned to treatment immediately. The randomization procedure must then
+balance two goals that pull against each other. Treatment assignments should
+be unpredictable, so that investigators cannot steer participants toward an
+arm, and the arms should be comparable in size and in prognostically
+important baseline covariates, so that chance imbalance does not cloud the
+treatment comparison [@rosenberger2016; @berger2005; @altman1990]. Restricted
+designs such as permuted blocks and biased coins control group sizes
+[@efron1971; @wei1978; @soares1983; @berger2003], and covariate-adaptive
+designs such as minimization control covariate margins [@taves1974;
+@pocock1975; @scott2002], but each restriction makes a larger share of
+assignments predictable [@blackwell1957; @zhao2012compare].
+
+Minimal sufficient balance (MSB) randomization [@zhao2015msb] resolves much of
+this tension by using a biased coin only when a controlled covariate is
+imbalanced beyond a prespecified limit *and* the current participant's
+assignment can reduce that imbalance. Covariates are used on their original
+scale, so continuous covariates need not be categorized. In the NINDS rt-PA
+data, MSB eliminated serious imbalance in five controlled covariates while
+keeping the correct-guess probability near 56%, compared with 66% to 75% for
+permuted blocks [@zhao2015msb]. Later work examined the statistical
+properties, bias, and power of MSB [@lauzon2020msb; @lauzon2022msb] and
+proposed a common-scale variant [@johns2022csmsb].
+
+MSB as published, however, does not guarantee the prescribed group sizes.
+Most protocols prescribe the number of participants in each arm, and data and
+safety monitoring board (DSMB) charters often expect the arms to be close to
+their prescribed sizes at each review. The simplest remedy, capping each arm
+at its prescribed size (the truncated binomial design), creates the problem
+MSB was designed to avoid: once one arm fills, every remaining participant is
+forced into the other arm, and those forced assignments are perfectly
+predictable. When the enrolled population changes over time (later sites,
+seasonal recruitment, a protocol amendment), the forced tail also turns that
+time trend into covariate imbalance. Zhao and colleagues noted that a balanced
+allocation could be enforced for an initial portion of the trial with the
+random allocation rule, and used 20 participants in their simulations
+[@zhao2015msb], but they did not formalize the idea.
+
+This article describes the [graceDR]{.pkg} package [@graceDR] for
+[R]{.proglang} [@rcore2026], which implements a modified MSB procedure built
+around these operational requirements. Relative to the original algorithm it
+adds an exact-allocation run-in whose size follows a stated rule, forced
+allocation at enrollment totals chosen in advance (for example, the sizes of
+DSMB reviews) and at the final sample size, support for any number of arms and
+for unequal allocation ratios, and a base probability computed from the places
+left before the next forced total. A group-size vote and a big stick bound
+[@soares1983] complete the procedure. Around the algorithm, the package keeps
+the trial in an encrypted file with an append-only audit log, replays any past
+assignment, and simulates operating characteristics against four comparators.
+Other software assesses and implements many randomization procedures, for
+example [randomizeR]{.pkg} [@uschner2018randomizeR]. [graceDR]{.pkg} focuses on
+sequential covariate-adaptive allocation with exact group sizes at chosen
+totals, and on the record keeping that live use requires.
+
+@sec-algorithm states the algorithm, @sec-software describes the software,
+@sec-performance reports a simulation study, and @sec-discussion discusses what
+the simulations do and do not show.
+
+## The algorithm {#sec-algorithm}
+
+### Notation
+
+Consider a trial with $k \ge 2$ arms and target sample size $N$. The allocation
+ratio is a vector of positive numbers, and the target proportions are
+$r_a = \text{ratio}_a / \sum_b \text{ratio}_b$ for arms $a = 1, \ldots, k$.
+Before participant $i$ is randomized, $n_a(i)$ is the number of participants
+already assigned to arm $a$, so that $\sum_a n_a(i) = i - 1$, and
+$$
+D_a(i) = n_a(i) - r_a (i - 1)
+$$
+is the deviation of arm $a$ from its target count. Every allocation rule in the
+package returns a probability vector $\phi(i) = (\phi_1(i), \ldots, \phi_k(i))$,
+together with a label for the step of the algorithm that produced it. The
+participant is assigned by one draw from $\phi(i)$.
+
+### Minimal sufficient balance votes {#sec-votes}
+
+Each balance variable $v$ has a weight $w_v > 0$. The weights are rescaled to
+sum to one, and equal weights are the default. Each variable casts a vote for
+one arm or no vote. A vote is cast only when the imbalance between the arms
+among the participants already randomized is large enough, as measured by a
+$p$-value below the limit $p^\ast$ (default 0.30), and when the current
+participant's value allows the assignment to reduce that imbalance
+[@zhao2015msb]. A participant whose value of a variable is missing casts no vote
+for that variable.
+
+*Categorical variables.* Let $T$ be the table of previous participants by level
+and arm. Levels with no previous participants are dropped. No vote is cast if
+fewer than two levels remain, if any arm has no participants in the table, or
+if the current participant's level is not in the table. Otherwise the
+Pearson statistic
+$\chi^2 = \sum_{j,a} (T_{ja} - E_{ja})^2 / E_{ja}$, with
+$E_{ja}$ the product of the row and column totals divided by the table total,
+is compared with a $\chi^2$ distribution on $(L - 1)(k - 1)$ degrees of
+freedom, where $L$ is the number of levels in the table. If the $p$-value is
+below $p^\ast$, the vote goes to the arm with the lowest share
+$T_{ja} / \sum_j T_{ja}$ in the current participant's level $j$. A tie for the
+lowest share gives no vote. With two arms this is the rule of @zhao2015msb:
+the vote goes to the arm whose observed count in the level is below its expected
+count.
+
+*Continuous variables.* No vote is cast unless every arm has at least two
+previous participants and a positive variance. With two arms, the statistic is
+Welch's two-sample $t$ statistic with the Satterthwaite degrees of freedom
+[@welch1947; @satterthwaite1946]. With $k > 2$ arms it is Welch's one-way
+analysis of variance from the arm sizes $n_a$, means $m_a$, and variances $s_a^2$
+[@welch1951]. With $w_a = n_a / s_a^2$ and $\bar m_w = \sum_a w_a m_a / \sum_a w_a$,
+$$
+F = \frac{\sum_a w_a (m_a - \bar m_w)^2 / (k - 1)}
+         {1 + \dfrac{2 (k - 2)}{k^2 - 1} h},
+\qquad
+h = \sum_a \frac{(1 - w_a / \sum_b w_b)^2}{n_a - 1},
+$$
+referred to an $F$ distribution on $k - 1$ and $(k^2 - 1) / (3h)$ degrees of
+freedom. If the $p$-value is below $p^\ast$, a participant whose value is above
+every arm mean votes for the arm with the smallest mean, and a participant whose
+value is below every arm mean votes for the arm with the largest mean. A
+participant whose value lies between the arm means casts no vote, because
+either assignment would change the imbalance very little. A tie for the
+smallest or largest mean gives no vote.
+
+*Group size.* After the run-in, group size is one more voter. If the arm with
+the most negative deviation has $D_a(i) \le -1$, and no other arm has the same
+deviation, it receives a vote of weight 1.
+
+*Tally.* The score of arm $a$ is the sum of the weights of the votes it
+received, $S_a(i) = \sum_v w_v \, 1\{\text{vote}_v = a\} + 1\{\text{size vote} = a\}$.
+The winner $\hat a$ is the arm with the single highest score. There is no winner
+if no votes were cast or if two arms tie for the highest score.
+
+### The biased coin {#sec-coin}
+
+MSB assigns to the favored arm with probability $\xi$ (default 0.65). To apply
+the same coin to a base probability vector $b$ that need not be uniform, the
+package tilts the favored arm on the odds scale. With $\omega = \xi / (1 - \xi)$,
+$$
+\phi_{\hat a} = \frac{\omega b_{\hat a}}{1 - b_{\hat a} + \omega b_{\hat a}},
+\qquad
+\phi_a = b_a \, \frac{1 - \phi_{\hat a}}{1 - b_{\hat a}} \quad (a \ne \hat a).
+$$ {#eq-tilt}
+The other arms keep their relative probabilities. With two arms and
+$b = (1/2, 1/2)$, the favored arm receives exactly $\xi$, which is the rule of
+@zhao2015msb. If there is no winner, or if $b_{\hat a}$ is 0 or 1, then
+$\phi = b$, so a forced assignment is never overridden by a vote.
+
+### Checkpoints and the base probability {#sec-checkpoints}
+
+A *checkpoint* is an enrollment total at which the arm counts must equal their
+target counts. The checkpoints $c_1 < \cdots < c_J = N$ are the end of the
+run-in (when the run-in is not empty), any totals the user names in advance
+with `forced_at`, and the final sample size $N$. The target count of arm $a$ at
+checkpoint $c$ is $t_a(c)$, the largest-remainder rounding of $c \, r_a$: each
+arm receives $\lfloor c r_a \rfloor$, and the remaining units go one at a time
+to the arms with the largest fractional parts, with ties going to the earlier
+arm. The targets add up to $c$.
+
+Before participant $i$, let $c$ be the smallest checkpoint with $c \ge i$, and
+let $R = c - (i - 1)$ be the number of places left before it. The base
+probability is
+$$
+b_a(i) = \frac{\max\{t_a(c) - n_a(i), 0\}}{R},
+$$ {#eq-base}
+which is the random allocation rule toward checkpoint $c$. The base
+probabilities add up to one, and an arm whose target has been reached receives
+probability zero. When only one arm is short of its target, $b_a(i) = 1$ for
+that arm and the assignment is forced.
+
+### The run-in {#sec-runin}
+
+The default run-in size is
+$$
+N_1 = \min\{N, \; \lceil n_1 / s \rceil s\}, \qquad n_1 = \max\{10, \lceil 0.10 N \rceil\},
+$$ {#eq-runin}
+where $s = \sum_a \text{ratio}_a$ when every ratio is a whole number, and
+$N_1 = \min\{N, n_1\}$ otherwise. Setting `runin_n = 0` removes the run-in. For
+$i \le N_1$ the probability is $\phi(i) = \operatorname{tilt}(b(i), \hat a)$ of
+@eq-tilt, where the winner $\hat a$ comes from the votes of the balance
+variables only. Because $b(i)$ becomes a unit vector once all but one arm have
+reached their run-in targets, the run-in ends with exactly the target counts in
+every realization, yet the covariates influence each earlier assignment. The
+option `runin_method = "rar"` removes the tilt and gives the plain random
+allocation rule that @zhao2015msb suggested.
+
+### After the run-in {#sec-after}
+
+For $i > N_1$ the procedure applies three steps in this order.
+
+1. *Quota.* If an arm is forced by @eq-base, assign to it.
+2. *Big stick bound.* Let $B$ be the size bound (default 3). If any arm has
+   $D_a(i) \le -B$, only those arms can be chosen, with probabilities
+   proportional to $-D_a(i)$ [@soares1983]. Otherwise, arms with
+   $D_a(i) \ge B$ receive probability zero and the remaining base probabilities
+   are rescaled to add up to one.
+3. *MSB coin.* If the bound changed nothing, $\phi(i) = \operatorname{tilt}(b(i), \hat a)$,
+   where the winner now includes the group-size vote.
+
+The package labels each assignment with its step: `runin`, `quota`, `bound`,
+`msb-biased` (a winner existed), or `msb-random` (no winner).
+
+### Fixed internal choices {#sec-fixed}
+
+Three choices are fixed constants rather than arguments. We state the reason
+for each. We did not study alternatives to them in this article, so the
+simulations below describe the procedure with these constants.
+
+* *The group-size vote starts at a shortfall of 1.* A shortfall below 1 cannot
+  be corrected by one assignment, and under 1:1 allocation a deviation of
+  $\pm 0.5$ occurs at every odd count, so a lower limit would make group size
+  vote almost constantly.
+* *The group-size vote has weight 1.* Because the balance-variable weights add
+  up to one, group size then outvotes any proper subset of the variables and
+  ties only when every variable votes against it, so group size matters without
+  taking over from the covariates.
+* *The base probability comes from the places left before the next checkpoint.*
+  This is what makes the checkpoints exact, and it moves every arm toward its
+  target throughout enrollment instead of leaving the whole correction to the
+  end, which is the situation in which an arm fills early and the remaining
+  assignments are forced.
+
+## The software {#sec-software}
+
+### Design
+
+[graceDR]{.pkg} is written in [R]{.proglang} with no compiled code. Three
+decisions shape it. First, a design object holds every choice. The function
+`grace_design()` validates the arguments, computes the run-in size, and builds
+the checkpoint table, and every other function reads its settings from that
+object, so that one call documents a trial's randomization plan.
+@tbl-arguments lists its arguments.
+
+```{r}
+#| label: tbl-arguments
+#| tbl-cap: "Arguments of `grace_design()`."
+
+arguments <- data.frame(
+  Argument = c(
+    r"(\code{n\_total})", r"(\code{balance\_vars})", r"(\code{arms})", r"(\code{ratio})",
+    r"(\code{weights})", r"(\code{p\_star})", r"(\code{xi})", r"(\code{runin\_n})",
+    r"(\code{forced\_at})", r"(\code{size\_bound})", r"(\code{runin\_method})"
+  ),
+  Default = c(
+    "(required)", "(required)", r"(\code{c("A", "B")})", r"(\code{c(1, 1)})", "equal",
+    "0.30", "0.65", "default rule", "none", "3", r"(\code{"tilted"})"
+  ),
+  Meaning = c(
+    "Total planned enrollment $N$",
+    r"(Named list made with \code{categorical\_var()} and \code{continuous\_var()})",
+    "Arm labels, at least two",
+    "Allocation ratio, any positive numbers",
+    "Positive weights of the variables, rescaled to sum to one",
+    r"(Imbalance $p$-value limit $p^\ast$)",
+    r"(Biased coin probability $\xi$)",
+    "Run-in size; 0 removes the run-in",
+    "Enrollment totals at which the target counts are forced",
+    "Big stick bound $B$",
+    r"(Run-in with the tilt, or the plain random allocation rule (\code{"rar"}))"
+  )
+)
+knitr::kable(
+  arguments,
+  format = "latex", booktabs = TRUE, escape = FALSE,
+  align = c("l", "l", ragged("6.2cm"))
+)
+```
+
+Second, allocation is a function of sufficient statistics. The state of a trial
+holds the arm counts, the level-by-arm table of each categorical variable, and
+the count, sum, and sum of squares of each continuous variable by arm. These are
+all the votes need. During simulation the state is updated one participant at a
+time, and during live randomization it is rebuilt from the stored records at
+each call, which keeps the trial file the single source of truth.
+
+Third, one rule serves both live use and simulation. Every allocation rule has
+the form `rule(state, x, design)` and returns the probabilities and the phase
+label. The live function `randomize()` and the simulation engine call the same
+rule functions, so a simulated operating characteristic describes the code that
+randomizes real participants. @tbl-functions lists the exported functions.
+
+```{r}
+#| label: tbl-functions
+#| tbl-cap: "Exported functions of \\pkg{graceDR}."
+
+functions <- data.frame(
+  Function = c(
+    code("grace_design()"),
+    code("categorical_var()", "continuous_var()"),
+    code("runin_size()", "arm_targets()"),
+    code("create_trial()"),
+    code("read_codes()"),
+    code("randomize()"),
+    code("trial_status()"),
+    code("group_size_table()", "balance_table()", "smd_by_var()"),
+    code("imbalance_plot()", "smd_plot()"),
+    code("override_assignment()"),
+    code("audit_log()"),
+    code("replay_assignment()"),
+    code("trial_passphrase()"),
+    code("simulate_trials()"),
+    code("summary()", "print()"),
+    code("design_generator()"),
+    code("example_design()", "example_generator_iid()", "example_generator_drift()")
+  ),
+  Purpose = c(
+    "Create the design object",
+    "Describe balance variables",
+    "Run-in size rule and whole-number target counts",
+    "Create the encrypted trial file",
+    "Read a file of treatment codes",
+    "Randomize one participant and save the record",
+    "Group sizes, balance tables, standardized differences, and plots",
+    "The tables behind the status report",
+    "The two plots of the status report",
+    "Change an assignment with a recorded reason",
+    "Read the append-only audit log",
+    "Redraw a past assignment and compare it with the record",
+    "Read the passphrase from the environment",
+    "Simulate trials under up to five allocation methods",
+    "Summaries and printing of a simulation",
+    "Synthetic participant streams with optional drift",
+    "A small design and two generators for examples"
+  )
+)
+knitr::kable(
+  functions,
+  format = "latex", booktabs = TRUE, escape = FALSE,
+  align = c(ragged("6.3cm"), ragged("6.3cm"))
+)
+```
+
+### The trial file, treatment codes, and audit log
+
+`create_trial()` writes the trial to a single encrypted file. The key is
+derived from a passphrase with a random salt, and the data are protected by
+authenticated secret-key encryption from the [sodium]{.pkg} package. The
+passphrase is read from the environment variable `GRACE_PASSPHRASE` or, in an
+interactive session, requested from the user. It must never be written in a
+script, and a lost passphrase cannot be recovered. Encryption protects the file
+at rest; it does not replace access control for the people who hold the
+passphrase. Each write goes to a temporary file, the previous version is kept
+as a backup, and the temporary file then replaces the trial file, so an
+interrupted write cannot leave a half-written trial.
+
+The trial keeps its own random number stream, seeded when the file is created.
+Each call to `randomize()` saves the stream's state with the record, installs the
+trial's state, draws, and then restores the caller's generator, so the user's
+`.Random.seed` is never changed. The saved state is what makes replay possible.
+
+Treatment codes are optional. A codes file lists a code and an arm in each row.
+After the arm is drawn, a code is drawn at random from the unused codes of that
+arm, and the file records which participant received it. If an arm has no codes
+left, nothing is saved.
+
+Every action (creation, randomization, and override) appends a row to the audit
+log with the time, the participant, the old and new values, and, for an override,
+the reason. No function edits or deletes a row.
+
+### Using the software
+
+The design below uses `example_design()`, a two-arm 1:1 design with sex, race
+(three levels), and age as balance variables. The `example_participants` data
+set holds 40 made-up participants.
+
+```{r}
+#| label: ex-design
+#| echo: true
+
+design <- example_design(40)
+design
+```
+
+A design may also have more than two arms, unequal ratios, unequal weights, and
+forced totals. In the three-arm design below the ratio is 2:1:1, sex counts
+twice as much as age, and the target counts are forced at 60 and 90 participants
+in addition to the run-in and the final total.
+
+```{r}
+#| label: ex-design-three
+#| echo: true
+
+design_three <- grace_design(
+  n_total = 120,
+  balance_vars = list(
+    sex = categorical_var(c("male", "female")),
+    age = continuous_var()
+  ),
+  arms = c("A", "B", "C"),
+  ratio = c(2, 1, 1),
+  weights = c(sex = 2, age = 1),
+  forced_at = c(60, 90)
+)
+design_three
+```
+
+We now create a trial in a temporary file with the made-up codes file that ships
+with the package, and randomize the 40 participants. The passphrase is set in
+the code only because the data are made up.
+
+```{r}
+#| label: ex-create
+#| echo: true
+
+Sys.setenv(GRACE_PASSPHRASE = "article-only")
+path <- tempfile(fileext = ".rds")
+codes_file <- system.file("extdata", "example_codes.csv", package = "graceDR")
+create_trial(path, design, seed = 20260611, codes = codes_file)
+for (j in seq_len(nrow(example_participants))) {
+  participant <- example_participants[j, ]
+  assignment <- randomize(
+    path, participant$id, participant[c("sex", "race", "age")]
+  )
+}
+assignment
+```
+
+`trial_status()` reads the file without randomizing anyone and reports group
+sizes, balance tables, standardized mean differences (SMD), and two plots.
+
+```{r}
+#| label: ex-status
+#| echo: true
+
+status <- trial_status(path)
+status
+status$balance
+```
+
+```{r}
+#| label: fig-status
+#| echo: true
+#| fig-cap: "The two plots of the status report for the 40 participants. Left: deviation of each arm from its target count as enrollment proceeds, with the checkpoints marked. Right: largest absolute SMD of each balance variable."
+#| fig-subcap:
+#|   - "Deviation from target counts."
+#|   - "Largest absolute SMD."
+#| layout-ncol: 2
+#| fig-width: 4.2
+#| fig-height: 3.2
+
+status$imbalance_plot
+status$smd_plot
+```
+
+When an assignment must be changed, for example after a data entry error,
+`override_assignment()` is the only supported route. It requires a reason, voids
+the old treatment code, draws a new code, and records the old and new values.
+Replaying then compares each participant's recorded assignment with a redraw
+from the saved random number state. For an overridden participant the
+comparison uses the original assignment from the audit log.
+
+```{r}
+#| label: ex-override
+#| echo: true
+
+new_arm <- setdiff(design$arms, assignment$arm)
+invisible(override_assignment(
+  path, "P040", new_arm,
+  reason = "Wrong race entered in the example."
+))
+log <- audit_log(path)
+log[nrow(log) + -1:0, c("event", "action", "id", "old", "new")]
+log$reason[nrow(log)]
+replays <- do.call(
+  rbind,
+  lapply(example_participants$id, \(id) replay_assignment(path, id))
+)
+all(replays$match)
+```
+
+### Simulation
+
+`simulate_trials()` runs many synthetic trials. In each simulation one stream of
+participants is drawn from a generator, and every requested method allocates that
+same stream, so the methods are compared on identical participants. The five
+methods are the modified procedure (`"mmsb"`), simple randomization (`"srs"`),
+permuted blocks (`"blocks"`), Pocock–Simon minimization (`"minimization"`), and
+unmodified MSB (`"msb"`). The argument `seed` is required and fixes all draws, and
+the user's random number state is left unchanged. With `parallel = TRUE` the
+simulations run through [furrr]{.pkg} and [future]{.pkg} [@bengtsson2021future]
+and give the same numbers as a sequential run.
+The generators `example_generator_iid()` and `example_generator_drift()` produce
+streams with and without a change in the population over enrollment, and
+`design_generator()` builds others. The function `summary()` gives the mean,
+standard deviation, 95th and 99th percentiles, and maximum of each metric.
+
+```{r}
+#| label: ex-simulate
+#| echo: true
+
+simulation <- simulate_trials(
+  design,
+  methods = c("srs", "mmsb"),
+  n_sims = 20,
+  generator = example_generator_iid(),
+  seed = 1
+)
+simulation
+```
+
+## Performance {#sec-performance}
+
+### Simulation design {#sec-simdesign}
+
+Each simulated trial enrolls $N \in \{200, 500\}$ participants into two arms in
+a 1:1 ratio, using `example_design()`. Its balance variables are sex, race
+(three levels), and age, with equal weights, and the default run-in has
+`r runin_size(200, c(1, 1))` participants when $N = 200$ and
+`r runin_size(500, c(1, 1))` when $N = 500$. Two enrollment streams are used.
+In the *iid* stream every participant is drawn from the same population: the
+probability of male sex is 0.48, race is white, Black, or other with
+probabilities 0.62, 0.23, and 0.15, and age is normal with mean 60 and standard
+deviation 10, rounded to one decimal. In the *drift* stream the population
+changes steadily over enrollment: the probability of male sex rises from 0.20 to
+0.80, the probability of Black race rises from 0.08 to 0.48 with the share of
+other race fixed at 0.15, and mean age rises from 48 to 72 years with standard
+deviation 8. Drift is a stress test, because any rule that concentrates one arm
+early or late converts the time trend into covariate imbalance.
+
+Five methods allocate the same participants, with the package defaults. The
+modified procedure and unmodified MSB [@zhao2015msb] use $p^\ast = 0.30$ and
+$\xi = 0.65$, and the modified procedure also uses $B = 3$ and the default
+run-in. Unmodified MSB has base probability $r_a$, no group-size vote, no
+quotas, and no bound. Permuted blocks use blocks of size four, which is twice
+the sum of the ratio. Minimization is the Pocock–Simon rule [@pocock1975]. For
+each candidate arm it adds the participant to that arm, takes the range of the
+arm counts divided by the target proportions within the participant's level of
+each variable, and sums these ranges over the variables with the design weights.
+Age is cut into three groups at the tertiles of 1000 participants drawn from the
+generator. The arm with the smallest total (or the tied arms, sharing equally)
+is assigned with probability 0.8, and the other arms share the remaining
+probability in proportion to their target proportions. Simple randomization
+uses probability $r_a$.
+
+Seven measures are reported. *Balance* is the largest absolute standardized mean
+difference (SMD) [@austin2009] over the three balance variables at the end of
+enrollment and at the end of the run-in. For a categorical variable the SMD is
+the largest over its levels, with each level treated as a 0/1 indicator. *Group
+size* is the absolute difference between the final count of the first arm and its
+target, and the proportion of trials in which the counts are exact at the end of
+the run-in and at the end of enrollment. *Predictability* is measured by the
+percentage of assignments that are forced, meaning that some arm has probability
+one; by the longest run of consecutive forced assignments to the same arm; and by
+the expected probability of a correct guess under the strategy of Blackwell and
+Hodges [@blackwell1957], which guesses the arm that is furthest behind its target
+share and takes the average of the assignment probabilities over tied arms. The
+correct-guess probability is computed from the stored probabilities $\phi(i)$,
+not from realized draws.
+
+Every setting uses `r format(n_sims, big.mark = ",")` simulated trials and the
+seed `r format(settings$seed, scientific = FALSE)`. A Monte Carlo standard error is the standard deviation of
+the per-trial values divided by $\sqrt{`r n_sims`}$. All methods allocate the same
+participants within a trial, so differences between methods are computed within
+trials, and their standard errors reflect that pairing.
+
+### Results {#sec-results}
+
+```{r}
+#| label: results-helpers
+#| include: false
+
+setting_column <- function() unlist(lapply(cells, \(cell) c(cell_label[[cell]], rep("", 4))))
+method_column <- function() rep(method_label[method_order], length(cells))
+stack <- function(f) unlist(lapply(cells, \(cell) f(S[[cell]])), use.names = FALSE)
+with_se <- function(mean, se, digits) {
+  paste0(
+    formatC(mean, format = "f", digits = digits),
+    " (", formatC(se, format = "f", digits = digits), ")"
+  )
+}
+with_max <- function(mean, max, digits) {
+  paste0(
+    formatC(mean, format = "f", digits = digits),
+    " (", formatC(max, format = "f", digits = 0), ")"
+  )
+}
+ci_text <- function(estimate, lower, upper, digits) {
+  paste0(
+    formatC(estimate, format = "f", digits = digits), " (",
+    formatC(lower, format = "f", digits = digits), ", ",
+    formatC(upper, format = "f", digits = digits), ")"
+  )
+}
+latex_table <- function(data, align) {
+  knitr::kable(
+    data,
+    format = "latex", booktabs = TRUE, escape = FALSE, align = align, row.names = FALSE,
+    linesep = c("", "", "", "", "\\addlinespace")
+  )
+}
+paired <- function(cell, method, what) {
+  table <- S[[cell]]$paired_smd
+  table[table$method == method, what]
+}
+smd_mean <- function(cell, method) f3(S[[cell]]$smd_end[method, "mean"])
+guess_mean <- function(cell, method) f1(S[[cell]]$guess[method, "mean"])
+deviation_mean <- function(cell, method) f1(S[[cell]]$deviation_mean[method])
+span <- function(x, f) {
+  low <- f(min(x))
+  high <- f(max(x))
+  if (identical(low, high)) low else paste0(low, " to ", high)
+}
+across_cells <- function(f) vapply(cells, f, numeric(1))
+```
+
+@tbl-balance, @tbl-sizes, and @tbl-predictability report the means, Monte Carlo
+standard errors, and extremes of the measures, and @tbl-paired reports
+differences from the modified procedure within trials.
+
+```{r}
+#| label: tbl-balance
+#| tbl-cap: !expr 'paste0("Covariate balance. Largest absolute SMD over the three balance variables at the end of enrollment (mean, with Monte Carlo standard error in parentheses, and 95th percentile) and at the end of the run-in (mean). ", format(n_sims, big.mark = ","), " simulated trials per setting.")'
+
+balance <- data.frame(
+  Setting = setting_column(),
+  Method = method_column(),
+  End = with_se(stack(\(s) s$smd_end$mean), stack(\(s) s$smd_end$se), 3),
+  Q95 = formatC(stack(\(s) s$smd_end$q95), format = "f", digits = 3),
+  Runin = formatC(stack(\(s) s$smd_runin_mean), format = "f", digits = 3)
+)
+names(balance) <- c("Setting", "Method", "End (SE)", "End, 95th pct.", "Run-in")
+latex_table(balance, c("l", "l", "r", "r", "r"))
+```
+
+```{r}
+#| label: tbl-sizes
+#| tbl-cap: "Group sizes. Percentage of trials in which the arm counts equal their targets at the end of the run-in and at the end of enrollment, and the absolute difference between the final count of the first arm and its target (mean, with the maximum in parentheses)."
+
+sizes <- data.frame(
+  Setting = setting_column(),
+  Method = method_column(),
+  Runin = formatC(stack(\(s) s$exact_runin), format = "f", digits = 1),
+  End = formatC(stack(\(s) s$exact_end), format = "f", digits = 1),
+  Deviation = with_max(stack(\(s) s$deviation_mean), stack(\(s) s$deviation_max), 2)
+)
+names(sizes) <- c("Setting", "Method", "Exact at run-in (\\%)", "Exact at end (\\%)", "Final difference")
+latex_table(sizes, c("l", "l", "r", "r", "r"))
+```
+
+```{r}
+#| label: tbl-predictability
+#| tbl-cap: "Predictability. Percentage of assignments that are forced, the longest run of consecutive forced assignments to the same arm (mean, with the maximum in parentheses), and the expected probability of a correct guess in percent under the Blackwell--Hodges strategy (mean, with Monte Carlo standard error in parentheses)."
+
+predictability <- data.frame(
+  Setting = setting_column(),
+  Method = method_column(),
+  Forced = formatC(stack(\(s) s$forced_mean), format = "f", digits = 1),
+  Run = with_max(stack(\(s) s$run_mean), stack(\(s) s$run_max), 1),
+  Guess = with_se(stack(\(s) s$guess$mean), stack(\(s) s$guess$se), 2)
+)
+names(predictability) <- c("Setting", "Method", "Forced (\\%)", "Longest forced run", "Correct guess (\\%)")
+latex_table(predictability, c("l", "l", "r", "r", "r"))
+```
+
+```{r}
+#| label: tbl-paired
+#| tbl-cap: "Differences from the modified procedure within trials (other method minus modified procedure), with 95\\% intervals from the paired Monte Carlo standard error. A positive difference in the largest SMD means the other method balances worse. A positive difference in the correct-guess probability means the other method is more predictable."
+
+paired_rows <- lapply(cells, \(cell) {
+  smd_diff <- S[[cell]]$paired_smd
+  guess_diff <- S[[cell]]$paired_guess
+  data.frame(
+    Setting = c(cell_label[[cell]], rep("", nrow(smd_diff) - 1)),
+    Method = method_label[smd_diff$method],
+    Smd = ci_text(smd_diff$mean, smd_diff$lower, smd_diff$upper, 4),
+    Guess = ci_text(guess_diff$mean, guess_diff$lower, guess_diff$upper, 1)
+  )
+})
+paired_table <- do.call(rbind, paired_rows)
+names(paired_table) <- c("Setting", "Method", "Largest SMD at end", "Correct guess (\\%)")
+knitr::kable(
+  paired_table,
+  format = "latex", booktabs = TRUE, escape = FALSE, row.names = FALSE,
+  align = c("l", "l", "r", "r"),
+  linesep = c("", "", "", "\\addlinespace")
+)
+```
+
+*Group sizes.* The modified procedure met the run-in targets and the final group
+sizes exactly in every one of the `r format(n_sims, big.mark = ",")` trials in
+each setting (@tbl-sizes). Permuted blocks also met the final sizes in every
+trial, but met the run-in targets only when the run-in size is a multiple of the
+block size. That holds for $N = 200$, where the run-in has 20 participants, and
+fails for $N = 500$, where it has 50 and blocks have size four, and there the
+counts were exact at the run-in in `r f1(S$N500_iid$exact_runin["blocks"])`% of
+trials without drift and `r f1(S$N500_drift$exact_runin["blocks"])`% with drift.
+Simple randomization and unmodified MSB do not control group size. Their final
+counts missed the target by a mean of
+`r span(c(across_cells(\(c) S[[c]]$deviation_mean["srs"]), across_cells(\(c) S[[c]]$deviation_mean["msb"])), f1)`
+participants across the settings, and by as many as
+`r max(across_cells(\(c) S[[c]]$deviation_max["srs"]), across_cells(\(c) S[[c]]$deviation_max["msb"]))`
+in a single trial. Minimization came close to the targets
+(mean difference `r span(across_cells(\(c) S[[c]]$deviation_mean["minimization"]), f1)`,
+maximum `r max(across_cells(\(c) S[[c]]$deviation_max["minimization"]))`) but was exact at the
+end in only `r span(across_cells(\(c) S[[c]]$exact_end["minimization"]), f1)`% of trials.
+
+*Covariate balance.* Minimization gave the smallest standardized differences in
+every setting. The modified procedure had smaller differences than simple
+randomization and permuted blocks and larger differences than unmodified MSB and
+minimization (@tbl-balance and @tbl-paired). With $N = 200$ and no drift, the
+mean largest SMD at the end was `r smd_mean("N200_iid", "mmsb")` for the
+modified procedure, `r smd_mean("N200_iid", "srs")` for simple randomization,
+`r smd_mean("N200_iid", "msb")` for MSB, and `r smd_mean("N200_iid", "minimization")`
+for minimization. Within trials, the modified procedure was
+`r f3(paired("N200_iid", "srs", "mean"))` lower than simple randomization (95%
+interval `r f3(paired("N200_iid", "srs", "lower"))` to
+`r f3(paired("N200_iid", "srs", "upper"))`) and
+`r f3(-paired("N200_iid", "msb", "mean"))` higher than MSB (95% interval
+`r f3(-paired("N200_iid", "msb", "upper"))` to `r f3(-paired("N200_iid", "msb", "lower"))`).
+Minimization was `r f3(-paired("N200_iid", "minimization", "mean"))` lower than the
+modified procedure (95% interval `r f3(-paired("N200_iid", "minimization", "upper"))` to
+`r f3(-paired("N200_iid", "minimization", "lower"))`). The balance at the end of the
+run-in was worse for every method than at the end of enrollment, as expected with only
+`r runin_size(200, c(1, 1))` or `r runin_size(500, c(1, 1))` participants.
+
+*Predictability.* The expected correct-guess probability is 50% for simple
+randomization by construction, and unmodified MSB stays within
+`r span(across_cells(\(c) S[[c]]$guess["msb", "mean"]), f1)`%
+because the covariate votes carry no information about group size. The modified
+procedure had a correct-guess probability of
+`r span(across_cells(\(c) S[[c]]$guess["mmsb", "mean"]), f1)`%, which reflects its
+group-size controls. Permuted blocks of size four forced
+`r f1(S$N200_iid$forced_mean["blocks"])`% of assignments and had a correct-guess
+probability of `r span(across_cells(\(c) S[[c]]$guess["blocks", "mean"]), f1)`%.
+Minimization forced no assignments but assigned the better arm with
+probability 0.8, and its correct-guess probability was
+`r span(across_cells(\(c) S[[c]]$guess["minimization", "mean"]), f1)`%. The
+modified procedure forced a mean of
+`r span(across_cells(\(c) S[[c]]$forced_mean["mmsb"]), f1)`% of assignments, with
+a mean longest forced run of
+`r span(across_cells(\(c) S[[c]]$run_mean["mmsb"]), f1)` participants and a
+largest run of `r max(across_cells(\(c) S[[c]]$run_max["mmsb"]))` in a single trial.
+
+*Drift.* The position of the modified procedure relative to the other methods
+on the largest SMD at the end of enrollment was the same with and without drift:
+smaller than simple randomization and permuted blocks and larger than MSB and
+minimization, in all four settings. Its own mean largest SMD at the end was
+`r smd_mean("N200_iid", "mmsb")` without drift and `r smd_mean("N200_drift", "mmsb")` with
+drift when $N = 200$, and `r smd_mean("N500_iid", "mmsb")` and
+`r smd_mean("N500_drift", "mmsb")` when $N = 500$. Permuted blocks improved
+relative to simple randomization under drift. The mean largest SMD of simple
+randomization minus that of permuted blocks was
+`r f3(S$N200_drift$smd_end["srs", "mean"] - S$N200_drift$smd_end["blocks", "mean"])` when
+$N = 200$ and `r f3(S$N500_drift$smd_end["srs", "mean"] - S$N500_drift$smd_end["blocks", "mean"])`
+when $N = 500$ with drift, and
+`r f3(S$N200_iid$smd_end["srs", "mean"] - S$N200_iid$smd_end["blocks", "mean"])` and
+`r f3(S$N500_iid$smd_end["srs", "mean"] - S$N500_iid$smd_end["blocks", "mean"])` without
+drift. The gap between the modified procedure and unmodified MSB was smallest with
+$N = 500$ and drift, where the mean difference was
+`r f3(-paired("N500_drift", "msb", "mean"))` and the 95% interval
+(`r f3(-paired("N500_drift", "msb", "upper"))` to `r f3(-paired("N500_drift", "msb", "lower"))`)
+came close to zero.
+
+@fig-tradeoff places the five methods on the balance and predictability axes.
+
+```{r}
+#| label: fig-tradeoff
+#| fig-cap: "Balance and predictability in the four settings. Horizontal axis: expected correct-guess probability. Vertical axis: mean largest absolute SMD at the end of enrollment. The lower left is better. Standard errors are smaller than the plotting symbols."
+#| fig-width: 6.3
+#| fig-height: 5.6
+
+symbols <- c(srs = 1, blocks = 2, minimization = 15, msb = 4, mmsb = 19)
+op <- par(mfrow = c(2, 2), mar = c(4, 4, 2, 0.5), cex.main = 0.9)
+for (cell in cells) {
+  x <- S[[cell]]$guess$mean
+  y <- S[[cell]]$smd_end$mean
+  plot(
+    x, y,
+    pch = symbols[method_order], cex = 1.3, xlim = c(46, 76),
+    ylim = c(0, max(y) * 1.2), xlab = "Correct-guess probability (%)",
+    ylab = "Mean largest SMD at end", main = cell_label[[cell]], las = 1, bty = "l"
+  )
+  label_position <- c(srs = 4, blocks = 1, minimization = 4, msb = 1, mmsb = 3)
+  text(x, y,
+    labels = method_label[method_order], pos = label_position[method_order],
+    cex = 0.6, offset = 0.6
+  )
+}
+par(op)
+```
+
+## Discussion {#sec-discussion}
+
+The simulations support a specific and limited claim. The modified procedure
+delivers what MSB as published does not: exact group sizes at the end of the
+run-in and at the end of enrollment in every simulated trial. It does so with
+`r span(across_cells(\(c) S[[c]]$forced_mean["mmsb"]), f1)`% forced assignments
+and a correct-guess probability
+`r span(across_cells(\(c) S[[c]]$guess["mmsb", "mean"] - S[[c]]$guess["srs", "mean"]), f1)`
+percentage points above simple randomization and
+`r span(across_cells(\(c) S[[c]]$guess["blocks", "mean"] - S[[c]]$guess["mmsb", "mean"]), f1)`
+points below permuted blocks of size four. The price in covariate balance,
+relative to unmodified MSB, is small: the mean largest SMD at the end was higher
+by `r span(across_cells(\(c) S[[c]]$smd_end["mmsb", "mean"] - S[[c]]$smd_end["msb", "mean"]), f3)`
+across the four settings, and the procedure kept most of the improvement of MSB over
+simple randomization.
+
+The simulations do not show that the modified procedure balances covariates
+better than every alternative. Minimization had clearly smaller standardized
+differences in all four settings (@tbl-balance and @tbl-paired), with an expected
+correct-guess probability only
+`r span(across_cells(\(c) S[[c]]$guess["minimization", "mean"] - S[[c]]$guess["mmsb", "mean"]), f1)`
+percentage points above that of the modified procedure, and its final group sizes
+were exact in fewer than half of the trials. Which trade-off is preferable depends
+on the protocol. If exact group sizes at named enrollment totals are required, the
+modified procedure and permuted blocks guarantee them and minimization as
+simulated here does not. If group sizes may differ by a few participants and
+balance on the controlled covariates is the main concern, minimization performed
+best on balance in these simulations.
+
+Several limitations restrict how far the results extend.
+
+* The simulations use one design: two arms in a 1:1 ratio and three balance
+  variables with equal weights. The software handles more arms, unequal ratios,
+  unequal weights, and forced totals before the end of enrollment, but none of
+  these were simulated here, and we make no claim about the performance of the
+  procedure in those settings.
+* Only two enrollment streams were used, and the drift was a steady change over
+  the whole enrollment. Earlier, abrupt, or larger changes were not examined.
+* The modified procedure was run with its defaults ($p^\ast = 0.30$, $\xi = 0.65$,
+  $B = 3$, and the default run-in), and the three fixed internal choices of
+  @sec-fixed were not varied. The comparators were also run at one setting each,
+  with blocks of size four and a probability of 0.8 in minimization. We did not
+  study how the results change with these settings.
+* Balance was measured by the largest SMD at the end of enrollment and at the end
+  of the run-in. We did not examine balance during enrollment, the power of a
+  treatment comparison, or bias in the estimated treatment effect, which
+  @lauzon2022msb studied for MSB. Minimization controls the margins that SMD
+  measures, which may favor it on this measure.
+* The Monte Carlo standard errors describe simulation error for these designs and
+  streams. They do not describe uncertainty about other designs.
+* The correct-guess probability is the expected value under one guessing strategy
+  [@blackwell1957]. An adversary with more information could do better.
+
+Because live randomization and simulation use the same allocation code, an
+investigator can run `simulate_trials()` on the trial's own design and expected
+enrollment pattern before the trial starts. We recommend doing so instead of
+relying on the settings simulated here. The encrypted trial file protects the data
+at rest, but who can read the allocation still depends on who holds the
+passphrase, so the passphrase should be shared only with those who are meant to
+be unblinded.
+
+## Computational details {#sec-computational}
+
+The results in this article were produced with `r settings$r_version`, version
+`r settings$package_version` of [graceDR]{.pkg}, and the script
+`run_simulations.R`, which stores each simulation and its summary in the folder
+`results`. The article reads those files and does not run the long simulations
+when it is rendered. It was written with Quarto [@allaire2022quarto]. Package
+tests use [testthat]{.pkg} [@wickham2011testthat].
+
+The package can be installed from GitHub with `pak::pak("BiostatDoc/grace")`.
+
