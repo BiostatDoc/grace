@@ -19,7 +19,7 @@ jobs:
           use-public-rspm: true
       - uses: r-lib/actions/setup-r-dependencies@v2
         with:
-          extra-packages: any::styler, any::lintr
+          extra-packages: any::styler, any::lintr, any::pkgload
       - name: Check formatting
         run: |
           Rscript -e "styler::style_pkg()"
