@@ -17,6 +17,7 @@ Imports:
     askpass,
     cli,
     dplyr,
+    ggplot2,
     purrr,
     rlang,
     sodium,
@@ -24,6 +25,7 @@ Imports:
     tidyr,
     withr
 Suggests: 
-    testthat (>= 3.0.0)
+    testthat (>= 3.0.0),
+    vdiffr
 Config/testthat/edition: 3
 Config/roxygen2/version: 8.1.1
