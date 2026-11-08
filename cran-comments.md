@@ -14,6 +14,5 @@
 
 The first win-builder run also reported that `LICENSE.md`, linked from
 `README.md`, was a possibly invalid file URI. The README now links to the
-file on GitHub. A second win-builder run was submitted after that fix, but
-its results email did not arrive, so the fix has not been confirmed on
-win-builder.
+file on GitHub. A second win-builder run (R Under development, 2026-11-07
+r90850) reported only the new-submission note above.
