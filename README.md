@@ -38,4 +38,4 @@ After installing, run `vignette("graceDR", package = "graceDR")`.
 
 ## License
 
-GPL (>= 3). See [LICENSE.md](LICENSE.md).
+GPL (>= 3). See [LICENSE.md](https://github.com/BiostatDoc/graceDR/blob/main/LICENSE.md).
