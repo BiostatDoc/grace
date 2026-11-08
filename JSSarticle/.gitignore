@@ -1,0 +1,14 @@
+article.pdf
+article.tex
+article.log
+article_files/
+.quarto/
+/.quarto/
+*.aux
+*.bbl
+*.blg
+*.out
+*.toc
+/jss.bst
+/jss.cls
+/jsslogo.jpg
