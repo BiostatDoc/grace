@@ -1,3 +1,18 @@
+UNAME := $(shell uname -s)
+
+ifneq ($(findstring MINGW,$(UNAME))$(findstring MSYS,$(UNAME)),)
+ifeq ($(LOCALAPPDATA),)
+export LOCALAPPDATA := $(shell cygpath -m "$$HOME/AppData/Local")
+endif
+ifeq ($(PROCESSOR_ARCHITECTURE),)
+ifeq ($(shell uname -m),x86_64)
+export PROCESSOR_ARCHITECTURE := AMD64
+else
+export PROCESSOR_ARCHITECTURE := ARM64
+endif
+endif
+endif
+
 .PHONY: format lint test check pre-pr
 
 format:
