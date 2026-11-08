@@ -993,5 +993,5 @@ The results in this article were produced with `r settings$r_version`, version
 when it is rendered. It was written with Quarto [@allaire2022quarto]. Package
 tests use [testthat]{.pkg} [@wickham2011testthat].
 
-The package can be installed from GitHub with `pak::pak("BiostatDoc/grace")`.
+The package can be installed from GitHub with `pak::pak("BiostatDoc/graceDR")`.
 

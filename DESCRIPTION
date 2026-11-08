@@ -10,6 +10,8 @@ Description: Randomizes clinical trial participants one at a time into k arms us
     an exact-allocation run-in, and forced allocation at chosen enrollment totals.
     Stores the trial in an encrypted file and simulates operating characteristics.
 License: GPL (>= 3)
+URL: https://github.com/BiostatDoc/graceDR
+BugReports: https://github.com/BiostatDoc/graceDR/issues
 Encoding: UTF-8
 Roxygen: list(markdown = TRUE)
 Depends: R (>= 4.6.0)

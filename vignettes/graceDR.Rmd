@@ -27,7 +27,7 @@ This vignette walks through a small made-up trial of 40 participants.
 ## Install
 
 ```{r install, eval = FALSE}
-pak::pak("BiostatDoc/grace")
+pak::pak("BiostatDoc/graceDR")
 ```
 
 ```{r setup}

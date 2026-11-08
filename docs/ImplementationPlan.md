@@ -381,10 +381,10 @@ All made up and small:
 ## 9. Deployment
 
 - The package runs on the unblinded statistician's computer. There is no server.
-- Install during development: `pak::pak("BiostatDoc/grace")`.
+- Install during development: `pak::pak("BiostatDoc/graceDR")`.
 - Releases: bump the version in `DESCRIPTION`, update `NEWS.md`, merge through a PR, then
   tag `vX.Y.Z` and create a GitHub release with `gh release create`.
-- Statisticians update with `pak::pak("BiostatDoc/grace@vX.Y.Z")`. Pin a version for the
+- Statisticians update with `pak::pak("BiostatDoc/graceDR@vX.Y.Z")`. Pin a version for the
   life of a trial and record it in the trial file (`packageVersion("grace")` stored at
   `create_trial()`).
 - CRAN: after the JSS submission, run `devtools::check(remote = TRUE, manual = TRUE)` and
