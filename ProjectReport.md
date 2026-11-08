@@ -6,7 +6,7 @@ enrollment totals, exactly the prescribed sizes. It was built by Dr. James W. Ha
 of Biostatistics, Department of Epidemiology and Biostatistics, University of South Carolina)
 and Grace Huiyi Ma (a junior in the Dutch Fork High School STEM Magnet Program, Irmo, South
 Carolina), with Claude, from a written specification. Version 0.1.0 is licensed under GPL-3 and
-lives in the public repository `BiostatDoc/grace`.
+lives in the public repository `BiostatDoc/graceDR`.
 
 The package is named `graceDR`, not `grace` as in the specification, because the name `grace`
 conflicts with an archived CRAN package named Grace.
@@ -238,25 +238,25 @@ request that delivered it.
 | | GRACE-26 | Project description and project report | This pull request |
 | | GRACE-27 | CRAN readiness and version 0.1.0 | [#18] |
 
-[#1]: https://github.com/BiostatDoc/grace/pull/1
-[#2]: https://github.com/BiostatDoc/grace/pull/2
-[#3]: https://github.com/BiostatDoc/grace/pull/3
-[#4]: https://github.com/BiostatDoc/grace/pull/4
-[#5]: https://github.com/BiostatDoc/grace/pull/5
-[#6]: https://github.com/BiostatDoc/grace/pull/6
-[#7]: https://github.com/BiostatDoc/grace/pull/7
-[#8]: https://github.com/BiostatDoc/grace/pull/8
-[#9]: https://github.com/BiostatDoc/grace/pull/9
-[#10]: https://github.com/BiostatDoc/grace/pull/10
-[#11]: https://github.com/BiostatDoc/grace/pull/11
-[#12]: https://github.com/BiostatDoc/grace/pull/12
-[#13]: https://github.com/BiostatDoc/grace/pull/13
-[#14]: https://github.com/BiostatDoc/grace/pull/14
-[#15]: https://github.com/BiostatDoc/grace/pull/15
-[#16]: https://github.com/BiostatDoc/grace/pull/16
-[#17]: https://github.com/BiostatDoc/grace/pull/17
-[#18]: https://github.com/BiostatDoc/grace/pull/18
-[#19]: https://github.com/BiostatDoc/grace/pull/19
+[#1]: https://github.com/BiostatDoc/graceDR/pull/1
+[#2]: https://github.com/BiostatDoc/graceDR/pull/2
+[#3]: https://github.com/BiostatDoc/graceDR/pull/3
+[#4]: https://github.com/BiostatDoc/graceDR/pull/4
+[#5]: https://github.com/BiostatDoc/graceDR/pull/5
+[#6]: https://github.com/BiostatDoc/graceDR/pull/6
+[#7]: https://github.com/BiostatDoc/graceDR/pull/7
+[#8]: https://github.com/BiostatDoc/graceDR/pull/8
+[#9]: https://github.com/BiostatDoc/graceDR/pull/9
+[#10]: https://github.com/BiostatDoc/graceDR/pull/10
+[#11]: https://github.com/BiostatDoc/graceDR/pull/11
+[#12]: https://github.com/BiostatDoc/graceDR/pull/12
+[#13]: https://github.com/BiostatDoc/graceDR/pull/13
+[#14]: https://github.com/BiostatDoc/graceDR/pull/14
+[#15]: https://github.com/BiostatDoc/graceDR/pull/15
+[#16]: https://github.com/BiostatDoc/graceDR/pull/16
+[#17]: https://github.com/BiostatDoc/graceDR/pull/17
+[#18]: https://github.com/BiostatDoc/graceDR/pull/18
+[#19]: https://github.com/BiostatDoc/graceDR/pull/19
 
 ## Where the project stands
 

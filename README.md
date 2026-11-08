@@ -10,7 +10,7 @@ blocks, minimization, and unmodified MSB.
 ## Installation
 
 ``` r
-pak::pak("BiostatDoc/grace")
+pak::pak("BiostatDoc/graceDR")
 ```
 
 ## Example
