@@ -13,6 +13,9 @@ blocks, minimization, and unmodified MSB.
 pak::pak("BiostatDoc/graceDR")
 ```
 
+Documentation: run help(package = "graceDR") in R, or browse the vignettes with
+browseVignettes("graceDR").
+
 ## Example
 
 ``` r
