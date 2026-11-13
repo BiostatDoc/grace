@@ -4,7 +4,7 @@ library(graceDR)
 library(ggplot2)
 library(knitr)
 
-options(
+setup_options <- options(
   cli.unicode = FALSE,
   cli.num_colors = 1,
   cli.width = 70,

@@ -45,6 +45,10 @@ renv, so everyone gets the same package versions. All paths are relative to this
 | `05-simulation-tables.R` | The tables of the simulation study |
 | `06-figure.R` | The figure of the simulation study |
 
+`run-all.R` restores your R options and your `GRACE_PASSPHRASE` environment variable when it
+finishes, also when a script fails. The scripts `00-setup.R` and `04-package-demo.R` change them
+while they run.
+
 ## Output
 
 - `results/`: the simulation results (`sim_*.rds`, `summary_*.rds`, `settings.rds`).

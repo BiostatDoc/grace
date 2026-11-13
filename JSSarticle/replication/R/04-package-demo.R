@@ -58,8 +58,3 @@ simulation <- simulate_trials(
   seed = 1
 )
 simulation
-if (is.na(previous_passphrase)) {
-  Sys.unsetenv("GRACE_PASSPHRASE")
-} else {
-  Sys.setenv(GRACE_PASSPHRASE = previous_passphrase)
-}
