@@ -65,10 +65,10 @@ the number of cores.
 
 ## graceDR version
 
-`00-setup.R` installs graceDR from the default branch of
-<https://github.com/BiostatDoc/graceDR> with `pak::pak("BiostatDoc/graceDR")`. graceDR is not
-recorded in `renv.lock`, so a later change to the package can change the results. All other
-packages are locked.
+`00-setup.R` installs graceDR from the release tag v0.1.0 of
+<https://github.com/BiostatDoc/graceDR> with `pak::pak("BiostatDoc/graceDR@v0.1.0")`, so every run
+uses the same package code. graceDR is not recorded in `renv.lock`. All other packages are locked.
+To use a newer release, change the tag in `R/00-setup.R`.
 
 ## Updating the lockfile
 
