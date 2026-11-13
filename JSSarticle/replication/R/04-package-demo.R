@@ -14,6 +14,7 @@ design_three <- grace_design(
 )
 design_three
 
+previous_passphrase <- Sys.getenv("GRACE_PASSPHRASE", unset = NA)
 Sys.setenv(GRACE_PASSPHRASE = "article-only")
 path <- tempfile(fileext = ".rds")
 codes_file <- system.file("extdata", "example_codes.csv", package = "graceDR")
