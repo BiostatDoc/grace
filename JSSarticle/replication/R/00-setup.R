@@ -1,4 +1,4 @@
-pak::pak("BiostatDoc/graceDR")
+pak::pak("BiostatDoc/graceDR@v0.1.0")
 
 library(graceDR)
 library(ggplot2)
