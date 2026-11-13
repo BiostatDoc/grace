@@ -65,3 +65,17 @@ the number of cores.
 <https://github.com/BiostatDoc/graceDR> with `pak::pak("BiostatDoc/graceDR")`. graceDR is not
 recorded in `renv.lock`, so a later change to the package can change the results. All other
 packages are locked.
+
+## Updating the lockfile
+
+The lockfile uses `snapshot.type` "implicit", so `renv::snapshot()` records only the packages that
+the scripts use. graceDR is not installed from the lockfile, and several of its imports (askpass,
+sodium, tidyr, withr) are not called by the scripts. A plain `renv::snapshot()` can therefore drop
+them or leave them unpinned. To update the lockfile, run:
+
+```r
+renv::snapshot(packages = c(
+  "askpass", "cli", "dplyr", "furrr", "future", "ggplot2", "knitr", "pak", "parallelly",
+  "purrr", "renv", "rlang", "sodium", "tibble", "tidyr", "withr"
+))
+```
