@@ -13,15 +13,17 @@ renv, so everyone gets the same package versions. All paths are relative to this
 
 ## Steps
 
-1. Open `replication.Rproj` in RStudio. Outside RStudio, start R in this folder. The `.Rprofile`
-   activates renv. On the first start renv installs itself.
-2. Restore the packages recorded in `renv.lock`:
+1. Unzip `replication.zip`. This creates the folder `replication`.
+2. Open `replication/replication.Rproj` in RStudio. Outside RStudio, start R with the working
+   directory set to the unzipped `replication` folder. The `.Rprofile` activates renv. On the first
+   start renv installs itself.
+3. Restore the packages recorded in `renv.lock`:
 
    ```r
    renv::restore()
    ```
 
-3. Run everything:
+4. Run everything:
 
    ```r
    source("run-all.R")
@@ -32,6 +34,9 @@ renv, so everyone gets the same package versions. All paths are relative to this
    ```
    Rscript run-all.R
    ```
+
+Run only `run-all.R`. The files in `R/` depend on objects created by earlier files, so they do not
+work one at a time.
 
 `run-all.R` runs the files in `R/` in order and prints each line of code with its output:
 
@@ -55,6 +60,9 @@ while they run.
 - `figures/`: `status-plots.pdf` and `tradeoff.pdf`.
 
 Both folders start empty and their contents are not kept in git. Every run overwrites them.
+
+A successful run prints the code and tables in the console, and creates `results/*.rds`,
+`figures/status-plots.pdf`, and `figures/tradeoff.pdf`.
 
 ## Run time
 
@@ -83,3 +91,15 @@ renv::snapshot(packages = c(
   "purrr", "renv", "rlang", "sodium", "tibble", "tidyr", "withr"
 ))
 ```
+
+## Building the zip archive
+
+For the maintainer. Check out an up-to-date `main`, then run this in the repository root:
+
+```
+git archive --format=zip --prefix=replication/ -o replication.zip HEAD:JSSarticle/replication
+```
+
+Build the zip from git, not from the working folder. `git archive` leaves out untracked and
+ignored files such as `renv/library`, old `results/` and `figures/` files, and `.Rproj.user`, none
+of which should be shipped.
