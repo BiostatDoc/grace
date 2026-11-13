@@ -1,5 +1,6 @@
 ^docs$
 ^JSSarticle$
+^article\.R$
 ^data-raw$
 ^Makefile$
 ^\.lintr$
