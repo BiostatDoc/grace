@@ -1,0 +1,8 @@
+.Rproj.user/
+.Rhistory
+.RData
+renv/library/
+results/*
+figures/*
+!results/.gitkeep
+!figures/.gitkeep
