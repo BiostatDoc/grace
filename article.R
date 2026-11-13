@@ -97,11 +97,6 @@ code <- function(...) {
   paste0("\\code{", gsub("_", "\\_", c(...), fixed = TRUE), "}", collapse = ", ")
 }
 
-f1 <- function(x) formatC(x, format = "f", digits = 1)
-f2 <- function(x) formatC(x, format = "f", digits = 2)
-f3 <- function(x) formatC(x, format = "f", digits = 3)
-n_sims <- settings$n_sims
-
 remove_latex <- function(x) {
   x |>
     gsub("\\\\code\\{([^{}]*)\\}", "\\1", x = _) |>
