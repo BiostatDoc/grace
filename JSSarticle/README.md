@@ -32,13 +32,5 @@ code. It reads the simulation results in `results/`. To rebuild them, run
 
 ## Replication script
 
-`article.R` in the repository root reproduces the code and output of the article, without the text.
-It installs graceDR from GitHub and the other packages at the versions in `renv.lock`, then runs
-the code of the article. Run it from the repository root:
-
-```
-Rscript article.R
-```
-
-It reads the simulation results in `JSSarticle/results/`, and runs `JSSarticle/run_simulations.R`
-only when those results are missing. The figures go to `article-figures.pdf`.
+The folder `replication/` is a self-contained RStudio project that reproduces the code and output
+of the article, without the text. See `replication/README.md`.

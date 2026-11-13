@@ -3,6 +3,7 @@
 .RData
 .Ruserdata
 *.Rproj
+!JSSarticle/replication/replication.Rproj
 .Renviron
 .env
 renv/library/
@@ -12,4 +13,3 @@ inst/doc
 *.tar.gz
 *.Rcheck/
 .claude/worktrees/
-article-figures.pdf
