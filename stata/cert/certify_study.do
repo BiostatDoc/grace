@@ -182,6 +182,14 @@ foreach variable in id old new old_code new_code reason {
     assert "`: type `variable''" == "strL"
 }
 
+_gracedr_study empty, name(state)
+assert _N == 0
+quietly ds
+assert "`r(varlist)'" == "state seed generator format_version"
+assert "`: type state'" == "strL"
+confirm double variable seed format_version
+confirm string variable generator
+
 expect_failure, ///
     rc(198) ///
     message("gracedr: no empty schema for participants") ///
