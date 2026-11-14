@@ -34,13 +34,19 @@ program define make_data
     generate str10 label = "row" + string(_n)
 end
 
-program define remove_folder
+program define dir_exists, rclass
     args folder
     mata: st_local("folder_found", strofreal(direxists(st_local("folder"))))
-    if `folder_found' == 1 {
+    return scalar found = `folder_found'
+end
+
+program define remove_folder
+    args folder
+    dir_exists "`folder'"
+    if r(found) == 1 {
         local subfolders : dir "`folder'" dirs "*"
         foreach subfolder of local subfolders {
-            quietly rmdir "`folder'/`subfolder'"
+            remove_folder "`folder'/`subfolder'"
         }
         local files : dir "`folder'" files "*"
         foreach file of local files {
@@ -48,4 +54,14 @@ program define remove_folder
         }
         quietly rmdir "`folder'"
     }
+end
+
+program define get_setting, rclass
+    args folder name
+    preserve
+    _gracedr_study read, study(`"`folder'"') name(design)
+    quietly keep if name == "`name'"
+    assert _N == 1
+    return local value = value[1]
+    restore
 end
