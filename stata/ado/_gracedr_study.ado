@@ -116,6 +116,12 @@ program define _gracedr_study_empty
         generate strL new_code = ""
         generate strL reason = ""
     }
+    else if "`name'" == "state" {
+        generate strL state = ""
+        generate double seed = .
+        generate str16 generator = ""
+        generate double format_version = .
+    }
     else {
         display as error "gracedr: no empty schema for `name'"
         exit 198
