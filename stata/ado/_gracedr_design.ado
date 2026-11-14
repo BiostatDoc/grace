@@ -206,7 +206,7 @@ program define _gracedr_design_parse_variables, rclass
         local levels = substr(ustrtrim(`"`levels'"'), 2, .)
         local cleaned ""
         foreach level of local levels {
-            local level = strlower(ustrtrim(`"`level'"'))
+            local level = ustrlower(ustrtrim(`"`level'"'))
             local cleaned `"`cleaned' "`level'""'
         }
         local cleaned = strtrim(`"`cleaned'"')

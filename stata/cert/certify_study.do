@@ -192,7 +192,7 @@ confirm string variable generator
 
 expect_failure, ///
     rc(198) ///
-    message("gracedr: no empty schema for participants") ///
+    message("gracedr: empty participants needs study()") ///
     command(`"_gracedr_study empty, name(participants)"')
 
 quietly mkdir "`other_root'"
