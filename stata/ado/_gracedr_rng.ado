@@ -1,7 +1,7 @@
 program define _gracedr_rng
     version 19
     gettoken subcommand 0 : 0, parse(" ,")
-    local known init draw replay
+    local known init draw replay check_seed
     local is_known : list subcommand in known
     if `is_known' == 0 | missing("`subcommand'") {
         display as error "gracedr: unknown rng subcommand `subcommand'"
@@ -10,8 +10,8 @@ program define _gracedr_rng
     _gracedr_rng_`subcommand' `0'
 end
 
-program define _gracedr_rng_init
-    syntax , STUDY(string) SEED(string)
+program define _gracedr_rng_check_seed
+    syntax , SEED(string)
     local whole = regexm(`"`seed'"', "^[0-9]+$")
     if `whole' == 1 {
         local whole = inrange(real(`"`seed'"'), 0, 2147483647)
@@ -20,6 +20,11 @@ program define _gracedr_rng_init
         display as error "gracedr: seed() must be a whole number from 0 to 2147483647"
         exit 198
     }
+end
+
+program define _gracedr_rng_init
+    syntax , STUDY(string) SEED(string)
+    _gracedr_rng_check_seed, seed(`"`seed'"')
     _gracedr_study exists, study(`"`study'"')
     if r(exists) == 0 {
         display as error `"gracedr: no study found in `study'"'
