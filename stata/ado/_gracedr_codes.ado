@@ -2,16 +2,16 @@ program define _gracedr_codes, rclass
     version 19
     syntax using/, ARMS(string asis)
     local arms : list clean arms
-    if fileexists(`"`using'"') == 0 {
-        display as error `"gracedr: codes file `using' not found"'
+    if fileexists(`"`macval(using)'"') == 0 {
+        display as error `"gracedr: codes file `macval(using)' not found"'
         exit 601
     }
-    local is_stata = substr(strlower(`"`using'"'), -4, 4) == ".dta"
+    local is_stata = substr(strlower(`"`macval(using)'"'), -4, 4) == ".dta"
     if `is_stata' == 1 {
-        quietly use `"`using'"', clear
+        quietly use `"`macval(using)'"', clear
     }
     else {
-        quietly import delimited using `"`using'"', varnames(1) stringcols(_all) clear
+        quietly import delimited using `"`macval(using)'"', varnames(1) stringcols(_all) clear
     }
     local absent ""
     foreach column in code arm {
@@ -19,10 +19,10 @@ program define _gracedr_codes, rclass
         if _rc == 0 {
             continue
         }
-        local absent "`absent' `column'"
+        local absent "`macval(absent)' `column'"
     }
-    if !missing("`absent'") {
-        display as error "gracedr: the codes file is missing column(s):`absent'"
+    if !missing("`macval(absent)'") {
+        display as error "gracedr: the codes file is missing column(s):`macval(absent)'"
         exit 198
     }
     keep code arm
@@ -65,7 +65,7 @@ program define _gracedr_codes, rclass
     quietly duplicates tag code, generate(`copies')
     quietly count if inrange(`copies', 1, 1e15)
     local repeated = r(N) == 0
-    if `repeated' == 0 {
+    if `macval(repeated)' == 0 {
         display as error "gracedr: codes must be unique"
         exit 198
     }
@@ -75,11 +75,23 @@ program define _gracedr_codes, rclass
         display as error "gracedr: unknown arm(s) in the codes file: (blank)"
         exit 198
     }
-    quietly levelsof arm, local(found)
-    local found : list clean found
-    local unknown : list found - arms
-    local unknown_count : list sizeof unknown
-    if inrange(`unknown_count', 1, 1e15) {
+    tempvar known_arm
+    quietly generate byte `known_arm' = 0
+    foreach label of local arms {
+        quietly replace `known_arm' = 1 if arm == `"`macval(label)'"'
+    }
+    quietly count if `known_arm' == 0
+    local unknown_rows = r(N)
+    if inrange(`unknown_rows', 1, 1e15) {
+        mata: gracedr_rows = select(st_sdata(., "arm"), st_data(., "`known_arm'") :== 0)
+        mata: gracedr_unknown = uniqrows(gracedr_rows)
+        mata: gracedr_no_space = strpos(gracedr_unknown, " ") :== 0
+        mata: gracedr_length = strlen(gracedr_unknown)
+        mata: gracedr_plain = substr(gracedr_unknown, 1, gracedr_length :* gracedr_no_space)
+        mata: gracedr_spaced = char(34) :+ gracedr_unknown :+ char(34)
+        mata: gracedr_keep = (gracedr_length :+ 2) :* (1 :- gracedr_no_space)
+        mata: gracedr_shown = gracedr_plain :+ substr(gracedr_spaced, 1, gracedr_keep)
+        mata: st_local("unknown", invtokens(gracedr_shown'))
         display as error `"gracedr: unknown arm(s) in the codes file: `macval(unknown)'"'
         exit 198
     }

@@ -139,13 +139,13 @@ expect_failure, ///
     rc(198) ///
     message("gracedr: n() must be a whole number from 2 to 2000000000") ///
     command(`"gracedr setup, study("`scratch'/four") n(1) arms(A B) `balance'"')
-dir_exists "`scratch'/four"
+_gracedr_study folder, study("`scratch'/four")
 assert r(found) == 0
 expect_failure, ///
     rc(198) ///
     message("gracedr: arms() must be at least 2 unique labels") ///
     command(`"gracedr setup, study("`scratch'/four") n(60) arms(A) `balance'"')
-dir_exists "`scratch'/four"
+_gracedr_study folder, study("`scratch'/four")
 assert r(found) == 0
 expect_failure, ///
     rc(603) ///
@@ -169,7 +169,7 @@ expect_failure, ///
     rc(198) ///
     message("`message'") ///
     command(`"`levels_call' categorical(sex: male fe`dollar')"')
-dir_exists "`scratch'/four"
+_gracedr_study folder, study("`scratch'/four")
 assert r(found) == 0
 
 gracedr setup, ///
@@ -213,7 +213,7 @@ foreach bad_seed in -1 2147483648 1.5 abc {
         rc(198) ///
         message("gracedr: seed() must be a whole number from 0 to 2147483647") ///
         command(`"`four_call' seed(`bad_seed')"')
-    dir_exists "`scratch'/four"
+    _gracedr_study folder, study("`scratch'/four")
     assert r(found) == 0
 }
 foreach good_seed in 0 2147483647 {

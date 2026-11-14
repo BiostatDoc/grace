@@ -7,7 +7,7 @@ program define _gracedr_rng
         display as error "gracedr: unknown rng subcommand `subcommand'"
         exit 198
     }
-    _gracedr_rng_`subcommand' `0'
+    _gracedr_rng_`subcommand' `macval(0)'
 end
 
 program define _gracedr_rng_check_seed
@@ -25,15 +25,15 @@ end
 program define _gracedr_rng_init
     syntax , STUDY(string) SEED(string)
     _gracedr_rng_check_seed, seed(`"`seed'"')
-    _gracedr_study exists, study(`"`study'"')
+    _gracedr_study exists, study(`"`macval(study)'"')
     if r(exists) == 0 {
-        display as error `"gracedr: no study found in `study'"'
+        display as error `"gracedr: no study found in `macval(study)'"'
         exit 601
     }
-    _gracedr_study folder, study(`"`study'"')
-    local folder `"`r(folder)'"'
-    if fileexists("`folder'/state.dta") == 1 {
-        display as error `"gracedr: state.dta already exists in `study'"'
+    _gracedr_study folder, study(`"`macval(study)'"')
+    mata: st_local("folder", st_global("r(folder)"))
+    if fileexists("`macval(folder)'/state.dta") == 1 {
+        display as error `"gracedr: state.dta already exists in `macval(study)'"'
         exit 602
     }
     local user_rng = c(rng)
@@ -50,53 +50,54 @@ program define _gracedr_rng_init
     quietly replace seed = `seed'
     quietly replace generator = "mt64"
     quietly replace format_version = 1
-    _gracedr_study write, study(`"`study'"') name(state)
+    _gracedr_study write, study(`"`macval(study)'"') name(state)
     restore
 end
 
 program define _gracedr_rng_draw, rclass
     syntax , STUDY(string) PROBS(string) ARMS(string)
     preserve
-    _gracedr_study read, study(`"`study'"') name(state)
+    _gracedr_study read, study(`"`macval(study)'"') name(state)
     if _N == 1 {
         local state = state[1]
         local generator = generator[1]
         _gracedr_rng_pick, ///
-            state(`"`state'"') ///
-            generator(`"`generator'"') ///
-            probs(`"`probs'"') ///
-            arms(`"`arms'"')
-        local arm `"`r(arm)'"'
-        local new_state `"`r(new_state)'"'
+            state(`"`macval(state)'"') ///
+            generator(`"`macval(generator)'"') ///
+            probs(`"`macval(probs)'"') ///
+            arms(`"`macval(arms)'"')
+        mata: st_local("arm", st_global("r(arm)"))
+        mata: st_local("new_state", st_global("r(new_state)"))
         mata: st_sstore(1, "state", st_local("new_state"))
-        _gracedr_study write, study(`"`study'"') name(state)
+        _gracedr_study write, study(`"`macval(study)'"') name(state)
         restore
         return local arm `"`arm'"'
-        return local state_before `"`state'"'
+        return local state_before `"`macval(state)'"'
     }
     else {
-        display as error `"gracedr: state.dta must have exactly one row in `study'"'
+        display as error `"gracedr: state.dta must have exactly one row in `macval(study)'"'
         exit 198
     }
 end
 
 program define _gracedr_rng_replay, rclass
     syntax , STATE(string) PROBS(string) ARMS(string) [GENERATOR(string)]
-    if missing("`generator'") {
+    if missing("`macval(generator)'") {
         local generator mt64
     }
     _gracedr_rng_pick, ///
-        state(`"`state'"') ///
-        generator(`"`generator'"') ///
-        probs(`"`probs'"') ///
-        arms(`"`arms'"')
-    return local arm `"`r(arm)'"'
+        state(`"`macval(state)'"') ///
+        generator(`"`macval(generator)'"') ///
+        probs(`"`macval(probs)'"') ///
+        arms(`"`macval(arms)'"')
+    mata: st_local("replayed_arm", st_global("r(arm)"))
+    return local arm `"`macval(replayed_arm)'"'
 end
 
 program define _gracedr_rng_pick, rclass
     syntax , STATE(string) GENERATOR(string) PROBS(string) ARMS(string)
-    local count : word count `probs'
-    local arm_count : word count `arms'
+    local count : word count `macval(probs)'
+    local arm_count : word count `macval(arms)'
     local consistent = inrange(`count', 1, 1000) & `count' == `arm_count'
     if `consistent' == 0 {
         display as error "gracedr: probs() and arms() must have the same number of items"
@@ -104,7 +105,7 @@ program define _gracedr_rng_pick, rclass
     }
     local total = 0
     forvalues position = 1/`count' {
-        local value = real(word(`"`probs'"', `position'))
+        local value = real(word(`"`macval(probs)'"', `position'))
         if !inrange(`value', 0, 1e300) {
             display as error "gracedr: probs() must be numbers that are not negative"
             exit 198
@@ -115,9 +116,9 @@ program define _gracedr_rng_pick, rclass
         display as error "gracedr: probs() must add up to more than zero"
         exit 198
     }
-    local well_formed = regexm(`"`state'"', "^[0-9A-Za-z]+$")
+    local well_formed = regexm(`"`macval(state)'"', "^[0-9A-Za-z]+$")
     if `well_formed' == 1 {
-        local well_formed = regexm(`"`generator'"', "^[0-9A-Za-z]+$")
+        local well_formed = regexm(`"`macval(generator)'"', "^[0-9A-Za-z]+$")
     }
     if `well_formed' == 0 {
         display as error "gracedr: state is not a valid random number state"
@@ -125,15 +126,15 @@ program define _gracedr_rng_pick, rclass
     }
     local partial = 0
     forvalues position = 1/`count' {
-        local partial = `partial' + real(word(`"`probs'"', `position'))
+        local partial = `partial' + real(word(`"`macval(probs)'"', `position'))
         local cumulative`position' = `partial' / `total'
     }
     local user_rng = c(rng)
     local user_state = c(rngstate)
-    capture set rng `generator'
+    capture set rng `macval(generator)'
     local failure = _rc
     if `failure' == 0 {
-        capture set rngstate `state'
+        capture set rngstate `macval(state)'
         local failure = _rc
     }
     if `failure' == 0 {
@@ -150,7 +151,7 @@ program define _gracedr_rng_pick, rclass
                 local chosen = `position'
             }
         }
-        local arm : word `chosen' of `arms'
+        local arm : word `chosen' of `macval(arms)'
         return local arm `"`arm'"'
         return local new_state `"`new_state'"'
     }

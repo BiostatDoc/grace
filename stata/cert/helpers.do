@@ -16,7 +16,7 @@ program define expect_failure
     file open `handle' using "`capture_log'", read text
     file read `handle' row
     while r(eof) == 0 {
-        local position = strpos(`"`macval(row)'"', `"`message'"')
+        local position = strpos(`"`macval(row)'"', `"`macval(message)'"')
         if !missing(`position') & `position' > 0 {
             local found = 1
         }
@@ -34,25 +34,19 @@ program define make_data
     generate str10 label = "row" + string(_n)
 end
 
-program define dir_exists, rclass
-    args folder
-    _gracedr_study folder, study(`"`folder'"')
-    return scalar found = r(found)
-end
-
 program define remove_folder
     args folder
-    dir_exists "`folder'"
+    _gracedr_study folder, study(`"`macval(folder)'"')
     if r(found) == 1 {
-        local subfolders : dir "`folder'" dirs "*"
+        local subfolders : dir "`macval(folder)'" dirs "*"
         foreach subfolder of local subfolders {
-            remove_folder "`folder'/`subfolder'"
+            remove_folder "`macval(folder)'/`macval(subfolder)'"
         }
-        local files : dir "`folder'" files "*"
+        local files : dir "`macval(folder)'" files "*"
         foreach file of local files {
-            quietly erase "`folder'/`file'"
+            quietly erase "`macval(folder)'/`macval(file)'"
         }
-        quietly rmdir "`folder'"
+        quietly rmdir "`macval(folder)'"
     }
 end
 

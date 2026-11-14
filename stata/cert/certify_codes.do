@@ -82,7 +82,7 @@ foreach case in ///
         rc(198) ///
         message("`message'") ///
         command(`"`bad_call' codes("`scratch'/`file'.csv")"')
-    dir_exists "`scratch'/bad"
+    _gracedr_study folder, study("`scratch'/bad")
     assert r(found) == 0
 }
 expect_failure, ///

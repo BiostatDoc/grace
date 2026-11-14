@@ -14,7 +14,7 @@ program define gracedr
     }
     capture findfile gracedr_`subcommand'.ado
     if _rc == 0 {
-        gracedr_`subcommand' `0'
+        gracedr_`subcommand' `macval(0)'
     }
     else {
         display as error "gracedr: `subcommand' is not available yet"

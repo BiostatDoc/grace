@@ -213,10 +213,17 @@ foreach tail in "," " x" "(" {
         message("`read_error' `good_values'`tail'") ///
         command(`"`call' options("sex(male) race(white) age(1) weight(2)`tail'")"')
 }
+local case_rule "Variable names are case-sensitive;"
+local case_text "gracedr: Sex() is not a balance variable. `case_rule'"
+local case_text2 "gracedr: RACE() is not a balance variable. `case_rule'"
 expect_failure, ///
     rc(198) ///
-    message("gracedr: missing value(s) for: sex") ///
+    message("`case_text' use sex()") ///
     command(`"`call' options("Sex(male) race(white) age(1) weight(2)")"')
+expect_failure, ///
+    rc(198) ///
+    message("`case_text2' use race()") ///
+    command(`"`call' options("sex(male) RACE(white) age(1) weight(2)")"')
 expect_failure, ///
     rc(198) ///
     message(`"gracedr: "1" is not a level of sex. Levels are "male" "female"."') ///

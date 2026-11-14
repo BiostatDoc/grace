@@ -62,7 +62,9 @@ again. A folder that existed before setup is never deleted.
 {pstd}
 Balance variables are kept in a fixed order: every {opt categorical()} variable in the order
 written, then every {opt continuous()} variable. {opt weights()} follows that order, whatever
-order the options were typed in. Levels are trimmed and lower-cased.
+order the options were typed in. Levels are trimmed and lower-cased. Variable names are
+case-sensitive, and so are the options that supply a participant's values: {cmd:Sex()} does not
+match a variable named {cmd:sex}.
 
 {pstd}
 Without {opt seed()}, setup picks a seed from the clock, shows it, and stores it in
