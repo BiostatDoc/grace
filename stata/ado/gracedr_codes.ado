@@ -2,7 +2,7 @@ program define gracedr_codes, rclass
     version 19
     syntax using/, ARMS(string asis)
     preserve
-    _gracedr_codes using `"`using'"', arms(`arms')
+    _gracedr_codes using `"`macval(using)'"', arms(`macval(arms)')
     return scalar n = r(n)
     restore, not
 end

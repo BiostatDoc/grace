@@ -297,4 +297,30 @@ assert _N == 4
 remove_folder "`root'"
 remove_folder "`other_root'"
 
+_gracedr_study reserved_id
+assert "`r(id)'" == "(study)"
+_gracedr_study check_id, id(P 007)
+assert r(id) == "P 007"
+local id244 ""
+forvalues block = 1/48 {
+    local id244 "`id244'abcde"
+}
+local id244 "`id244'abcd"
+_gracedr_study check_id, id(`id244')
+assert r(id) == "`id244'"
+expect_failure, ///
+    rc(198) ///
+    message("gracedr: id() must be at most 244 bytes") ///
+    command(`"_gracedr_study check_id, id(`id244'x)"')
+expect_failure, ///
+    rc(198) ///
+    message("gracedr: id() must not be empty") ///
+    command(`"_gracedr_study check_id, id(" ")"')
+foreach reserved_id in "(study)" "(STUDY)" " (Study) " {
+    expect_failure, ///
+        rc(198) ///
+        message("gracedr: (study) is reserved and cannot be a participant id") ///
+        command(`"_gracedr_study check_id, id(`"`reserved_id'"')"')
+}
+
 display "certify_study: all checks passed"

@@ -1,152 +1,179 @@
 program define _gracedr_study
     version 19
     gettoken subcommand 0 : 0, parse(" ,")
-    local known read write exists folder setting append_audit empty
+    local known read write exists folder setting check_id reserved_id append_audit empty
     local is_known : list subcommand in known
     if `is_known' == 0 | missing("`subcommand'") {
         display as error "gracedr: unknown study subcommand `subcommand'"
         exit 198
     }
-    _gracedr_study_`subcommand' `0'
+    _gracedr_study_`subcommand' `macval(0)'
 end
 
 program define _gracedr_study_folder, rclass
     syntax , STUDY(string)
-    if regexm(`"`study'"', char(34)) == 1 {
+    if regexm(`"`macval(study)'"', char(34)) == 1 {
         display as error "gracedr: study() must not contain a double quote"
         exit 198
     }
-    local folder = subinstr(`"`study'"', char(92), "/", .)
-    while substr(`"`folder'"', -1, 1) == "/" & !inlist(length(`"`folder'"'), 0, 1) {
-        local folder = substr(`"`folder'"', 1, length(`"`folder'"') - 1)
+    local folder = subinstr(`"`macval(study)'"', char(92), "/", .)
+    local trailing = substr(`"`macval(folder)'"', -1, 1) == "/"
+    local trailing = `trailing' & !inlist(length(`"`macval(folder)'"'), 0, 1)
+    while `trailing' == 1 {
+        local folder = substr(`"`macval(folder)'"', 1, length(`"`macval(folder)'"') - 1)
+        local trailing = substr(`"`macval(folder)'"', -1, 1) == "/"
+        local trailing = `trailing' & !inlist(length(`"`macval(folder)'"'), 0, 1)
     }
-    if substr(`"`folder'"', -1, 1) == ":" {
-        local folder `"`folder'/"'
+    if substr(`"`macval(folder)'"', -1, 1) == ":" {
+        local folder `"`macval(folder)'/"'
     }
     mata: st_local("folder_found", strofreal(direxists(st_local("folder"))))
     return scalar found = `folder_found'
-    return local folder `"`folder'"'
+    return local folder `"`macval(folder)'"'
+end
+
+program define _gracedr_study_reserved_id, rclass
+    return local id "(study)"
+end
+
+program define _gracedr_study_check_id, rclass
+    syntax , ID(string)
+    if missing(ustrtrim(`"`macval(id)'"')) {
+        display as error "gracedr: id() must not be empty"
+        exit 198
+    }
+    if inrange(strlen(`"`macval(id)'"'), 245, 1e15) {
+        display as error "gracedr: id() must be at most 244 bytes"
+        exit 198
+    }
+    _gracedr_study_reserved_id
+    mata: st_local("reserved", st_global("r(id)"))
+    if ustrlower(ustrtrim(`"`macval(id)'"')) == ustrlower(`"`reserved'"') {
+        display as error `"gracedr: `reserved' is reserved and cannot be a participant id"'
+        exit 198
+    }
+    return local id `"`macval(id)'"'
 end
 
 program define _gracedr_study_checkname
     args name
-    if !inlist("`name'", "design", "participants", "codes", "audit", "state") {
-        display as error "gracedr: unknown study dataset `name'"
+    if !inlist("`macval(name)'", "design", "participants", "codes", "audit", "state") {
+        display as error "gracedr: unknown study dataset `macval(name)'"
         exit 198
     }
 end
 
 program define _gracedr_study_require
     args folder shown
-    if fileexists("`folder'/design.dta") == 0 {
-        display as error `"gracedr: no study found in `shown'"'
+    if fileexists("`macval(folder)'/design.dta") == 0 {
+        display as error `"gracedr: no study found in `macval(shown)'"'
         exit 601
     }
 end
 
 program define _gracedr_study_exists, rclass
     syntax , STUDY(string)
-    _gracedr_study_folder, study(`"`study'"')
-    local folder `"`r(folder)'"'
-    return scalar exists = fileexists(`"`folder'/design.dta"')
+    _gracedr_study_folder, study(`"`macval(study)'"')
+    mata: st_local("folder", st_global("r(folder)"))
+    return scalar exists = fileexists(`"`macval(folder)'/design.dta"')
 end
 
 program define _gracedr_study_setting, rclass
     syntax , STUDY(string) NAME(string)
-    local words : word count `name'
-    capture confirm name `name'
+    local words : word count `macval(name)'
+    capture confirm name `macval(name)'
     local valid_name = `words' == 1 & _rc == 0
     if `valid_name' == 0 {
         display as error "gracedr: setting names must be valid Stata names"
         exit 198
     }
-    _gracedr_study_folder, study(`"`study'"')
-    local folder `"`r(folder)'"'
-    _gracedr_study_require "`folder'" "`study'"
+    _gracedr_study_folder, study(`"`macval(study)'"')
+    mata: st_local("folder", st_global("r(folder)"))
+    _gracedr_study_require "`macval(folder)'" "`macval(study)'"
     preserve
-    quietly use "`folder'/design.dta", clear
+    quietly use "`macval(folder)'/design.dta", clear
     capture confirm variable name value
     local intact = _rc == 0
     if `intact' == 0 {
         display as error "gracedr: design.dta is damaged: it needs the columns name and value"
         exit 459
     }
-    quietly keep if name == `"`name'"'
+    quietly keep if name == `"`macval(name)'"'
     if _N == 1 {
         mata: st_local("value", st_sdata(1, "value"))
         restore
         return local value `"`value'"'
     }
     else if _N == 0 {
-        display as error `"gracedr: design.dta has no setting named `name'"'
+        display as error `"gracedr: design.dta has no setting named `macval(name)'"'
         exit 111
     }
     else {
-        display as error `"gracedr: design.dta has more than one setting named `name'"'
+        display as error `"gracedr: design.dta has more than one setting named `macval(name)'"'
         exit 459
     }
 end
 
 program define _gracedr_study_read
     syntax , STUDY(string) NAME(string)
-    _gracedr_study_checkname "`name'"
-    _gracedr_study_folder, study(`"`study'"')
-    local folder `"`r(folder)'"'
-    _gracedr_study_require "`folder'" "`study'"
-    if fileexists("`folder'/`name'.dta") == 0 {
-        display as error `"gracedr: `name'.dta is missing from `study'"'
+    _gracedr_study_checkname "`macval(name)'"
+    _gracedr_study_folder, study(`"`macval(study)'"')
+    mata: st_local("folder", st_global("r(folder)"))
+    _gracedr_study_require "`macval(folder)'" "`macval(study)'"
+    if fileexists("`macval(folder)'/`macval(name)'.dta") == 0 {
+        display as error `"gracedr: `macval(name)'.dta is missing from `macval(study)'"'
         exit 601
     }
-    use "`folder'/`name'.dta", clear
+    use "`macval(folder)'/`macval(name)'.dta", clear
 end
 
 program define _gracedr_study_write
     syntax , STUDY(string) NAME(string)
-    _gracedr_study_checkname "`name'"
-    _gracedr_study_folder, study(`"`study'"')
-    local folder `"`r(folder)'"'
+    _gracedr_study_checkname "`macval(name)'"
+    _gracedr_study_folder, study(`"`macval(study)'"')
+    mata: st_local("folder", st_global("r(folder)"))
     if r(found) == 0 {
-        display as error `"gracedr: study folder `study' does not exist"'
+        display as error `"gracedr: study folder `macval(study)' does not exist"'
         exit 601
     }
-    local current "`folder'/`name'.dta"
-    local pending "`folder'/`name'.tmp"
-    local backup "`folder'/`name'.bak"
-    capture quietly save "`pending'", replace
+    local current "`macval(folder)'/`macval(name)'.dta"
+    local pending "`macval(folder)'/`macval(name)'.tmp"
+    local backup "`macval(folder)'/`macval(name)'.bak"
+    capture quietly save "`macval(pending)'", replace
     if _rc == 0 {
-        if fileexists("`current'") == 1 {
-            copy "`current'" "`backup'", replace
+        if fileexists("`macval(current)'") == 1 {
+            copy "`macval(current)'" "`macval(backup)'", replace
         }
-        copy "`pending'" "`current'", replace
-        erase "`pending'"
+        copy "`macval(pending)'" "`macval(current)'", replace
+        erase "`macval(pending)'"
     }
     else {
         local failure = _rc
-        capture erase "`pending'"
-        display as error `"gracedr: could not write `name'.dta in `study'"'
+        capture erase "`macval(pending)'"
+        display as error `"gracedr: could not write `macval(name)'.dta in `macval(study)'"'
         exit `failure'
     }
 end
 
 program define _gracedr_study_empty
     syntax , NAME(string) [STUDY(string)]
-    if "`name'" == "participants" & missing(`"`study'"') {
+    if "`macval(name)'" == "participants" & missing(`"`macval(study)'"') {
         display as error "gracedr: empty participants needs study()"
         exit 198
     }
     clear
-    if "`name'" == "design" {
+    if "`macval(name)'" == "design" {
         generate str244 name = ""
         generate strL value = ""
         generate double order = .
     }
-    else if "`name'" == "codes" {
+    else if "`macval(name)'" == "codes" {
         generate str244 code = ""
         generate str244 arm = ""
         generate str8 status = ""
         generate str244 id = ""
     }
-    else if "`name'" == "audit" {
+    else if "`macval(name)'" == "audit" {
         generate double time = .
         format time %tc
         generate str16 action = ""
@@ -157,26 +184,26 @@ program define _gracedr_study_empty
         generate strL new_code = ""
         generate strL reason = ""
     }
-    else if "`name'" == "participants" {
-        _gracedr_study_setting, study(`"`study'"') name(varnames)
-        local varnames `"`r(value)'"'
-        _gracedr_study_setting, study(`"`study'"') name(vartypes)
-        local vartypes `"`r(value)'"'
-        _gracedr_study_setting, study(`"`study'"') name(arms)
+    else if "`macval(name)'" == "participants" {
+        _gracedr_study_setting, study(`"`macval(study)'"') name(varnames)
+        mata: st_local("varnames", st_global("r(value)"))
+        _gracedr_study_setting, study(`"`macval(study)'"') name(vartypes)
+        mata: st_local("vartypes", st_global("r(value)"))
+        _gracedr_study_setting, study(`"`macval(study)'"') name(arms)
         local arm_count : word count `r(value)'
         _gracedr_study_participants, ///
-            varnames(`varnames') ///
-            vartypes(`vartypes') ///
+            varnames(`macval(varnames)') ///
+            vartypes(`macval(vartypes)') ///
             arms(`arm_count')
     }
-    else if "`name'" == "state" {
+    else if "`macval(name)'" == "state" {
         generate strL state = ""
         generate double seed = .
         generate str16 generator = ""
         generate double format_version = .
     }
     else {
-        display as error "gracedr: no empty schema for `name'"
+        display as error "gracedr: no empty schema for `macval(name)'"
         exit 198
     }
 end
@@ -197,29 +224,29 @@ program define _gracedr_study_append_audit
         display as error "gracedr: unknown audit action `action'"
         exit 198
     }
-    _gracedr_study_folder, study(`"`study'"')
-    local folder `"`r(folder)'"'
-    _gracedr_study_require "`folder'" "`study'"
+    _gracedr_study_folder, study(`"`macval(study)'"')
+    mata: st_local("folder", st_global("r(folder)"))
+    _gracedr_study_require "`macval(folder)'" "`macval(study)'"
     _gracedr_utc
     local stamp = r(time)
     preserve
-    if fileexists("`folder'/audit.dta") == 1 {
-        _gracedr_study_read, study(`"`study'"') name(audit)
+    if fileexists("`macval(folder)'/audit.dta") == 1 {
+        _gracedr_study_read, study(`"`macval(study)'"') name(audit)
     }
     else {
         _gracedr_study_empty, name(audit)
     }
     local row = _N + 1
-    quietly set obs `row'
-    mata: st_store(`row', "time", `stamp')
+    quietly set obs `macval(row)'
+    mata: st_store(`macval(row)', "time", `macval(stamp)')
     local variables action id old new old_code new_code reason
     local options action id old new oldcode newcode reason
     forvalues position = 1/7 {
         local variable : word `position' of `variables'
-        local option : word `position' of `options'
-        mata: st_sstore(`row', "`variable'", st_local("`option'"))
+        local option : word `position' of `macval(options)'
+        mata: st_sstore(`macval(row)', "`variable'", st_local("`option'"))
     }
-    _gracedr_study_write, study(`"`study'"') name(audit)
+    _gracedr_study_write, study(`"`macval(study)'"') name(audit)
     restore
 end
 
@@ -227,20 +254,20 @@ program define _gracedr_study_participants
     syntax , VARNAMES(string) VARTYPES(string) ARMS(integer)
     generate long seq = .
     generate str244 id = ""
-    local count : word count `varnames'
+    local count : word count `macval(varnames)'
     forvalues position = 1/`count' {
-        local name : word `position' of `varnames'
-        local type : word `position' of `vartypes'
+        local name : word `position' of `macval(varnames)'
+        local type : word `position' of `macval(vartypes)'
         if "`type'" == "categorical" {
-            generate str244 `name' = ""
+            generate str244 `macval(name)' = ""
         }
         else {
-            generate double `name' = .
+            generate double `macval(name)' = .
         }
     }
     generate str244 arm = ""
     generate str244 code = ""
-    forvalues position = 1/`arms' {
+    forvalues position = 1/`macval(arms)' {
         generate double prob`position' = .
     }
     generate str16 phase = ""

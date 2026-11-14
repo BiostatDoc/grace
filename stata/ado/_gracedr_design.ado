@@ -7,7 +7,7 @@ program define _gracedr_design
         display as error `"gracedr: unknown design subcommand `subcommand'"'
         exit 198
     }
-    _gracedr_design_`subcommand' `0'
+    _gracedr_design_`subcommand' `macval(0)'
 end
 
 program define _gracedr_design_whole, rclass
@@ -60,7 +60,7 @@ program define _gracedr_design_compute_targets, rclass
         local total = `total' + `value'
     }
     local assigned = 0
-    forvalues arm = 1/`arms' {
+    forvalues arm = 1/`macval(arms)' {
         local value : word `arm' of `ratio'
         local exact = `n' * (`value' / `total')
         local base`arm' = floor(round(`exact', 0.0000000001))
@@ -72,7 +72,7 @@ program define _gracedr_design_compute_targets, rclass
     forvalues turn = 1/`remainder' {
         local best = 0
         local best_fraction = -1
-        forvalues arm = 1/`arms' {
+        forvalues arm = 1/`macval(arms)' {
             local ahead = !missing(`fraction`arm'') & `fraction`arm'' > `best_fraction'
             if `taken`arm'' == 0 & `ahead' == 1 {
                 local best = `arm'
@@ -83,7 +83,7 @@ program define _gracedr_design_compute_targets, rclass
         local base`best' = `base`best'' + 1
     }
     local targets ""
-    forvalues arm = 1/`arms' {
+    forvalues arm = 1/`macval(arms)' {
         local targets "`targets' `base`arm''"
     }
     return local targets = strtrim("`targets'")
@@ -132,56 +132,56 @@ program define _gracedr_design_checkpoints
     generate str6 type = ""
     generate byte priority = .
     local row = 1
-    quietly replace n = `n' in `row'
-    quietly replace type = "final" in `row'
-    quietly replace priority = 1 in `row'
+    quietly replace n = `n' in `macval(row)'
+    quietly replace type = "final" in `macval(row)'
+    quietly replace priority = 1 in `macval(row)'
     if `has_runin' == 1 {
-        local row = `row' + 1
-        quietly replace n = `runin' in `row'
-        quietly replace type = "run-in" in `row'
-        quietly replace priority = 2 in `row'
+        local row = `macval(row)' + 1
+        quietly replace n = `runin' in `macval(row)'
+        quietly replace type = "run-in" in `macval(row)'
+        quietly replace priority = 2 in `macval(row)'
     }
     foreach value of local forcedat {
-        local row = `row' + 1
-        quietly replace n = `value' in `row'
-        quietly replace type = "forced" in `row'
-        quietly replace priority = 3 in `row'
+        local row = `macval(row)' + 1
+        quietly replace n = `value' in `macval(row)'
+        quietly replace type = "forced" in `macval(row)'
+        quietly replace priority = 3 in `macval(row)'
     }
     sort n priority
     quietly by n: keep if _n == 1
     drop priority
     local arms : word count `ratio'
-    forvalues arm = 1/`arms' {
+    forvalues arm = 1/`macval(arms)' {
         quietly generate long target`arm' = .
     }
     local total_rows = _N
     forvalues row = 1/`total_rows' {
-        local checkpoint = n[`row']
+        local checkpoint = n[`macval(row)']
         _gracedr_design_compute_targets, n(`checkpoint') ratio(`ratio')
-        forvalues arm = 1/`arms' {
+        forvalues arm = 1/`macval(arms)' {
             local count : word `arm' of `r(targets)'
-            quietly replace target`arm' = `count' in `row'
+            quietly replace target`arm' = `count' in `macval(row)'
         }
     }
 end
 
 program define _gracedr_design_check_name
     args name
-    local words : word count `name'
+    local words : word count `macval(name)'
     local single = `words' == 1
     if `single' == 0 {
-        display as error `"gracedr: `name' is not a valid Stata variable name"'
+        display as error `"gracedr: `macval(name)' is not a valid Stata variable name"'
         exit 198
     }
-    if inlist(`"`name'"', "id", "arm", "code", "seq") {
-        display as error `"gracedr: balance variable name `name' is reserved"'
+    if inlist(`"`macval(name)'"', "id", "arm", "code", "seq") {
+        display as error `"gracedr: balance variable name `macval(name)' is reserved"'
         exit 198
     }
-    capture confirm name `name'
+    capture confirm name `macval(name)'
     if _rc == 0 {
         exit
     }
-    display as error `"gracedr: `name' is not a valid Stata variable name"'
+    display as error `"gracedr: `macval(name)' is not a valid Stata variable name"'
     exit 198
 end
 
@@ -190,52 +190,53 @@ program define _gracedr_design_parse_variables, rclass
     local names ""
     local types ""
     local count = 0
-    local remaining `"`categorical'"'
-    while !missing(ustrtrim(`"`remaining'"')) {
+    local remaining `"`macval(categorical)'"'
+    while !missing(ustrtrim(`"`macval(remaining)'"')) {
         gettoken piece remaining : remaining, parse("|")
-        if `"`piece'"' == "|" | missing(ustrtrim(`"`piece'"')) {
+        if `"`macval(piece)'"' == "|" | missing(ustrtrim(`"`macval(piece)'"')) {
             continue
         }
         gettoken name levels : piece, parse(":")
-        local name = ustrtrim(`"`name'"')
-        local has_colon = substr(ustrtrim(`"`levels'"'), 1, 1) == ":"
+        local name = ustrtrim(`"`macval(name)'"')
+        local has_colon = substr(ustrtrim(`"`macval(levels)'"'), 1, 1) == ":"
         if `has_colon' == 0 {
             display as error "gracedr: categorical() entries must look like name: level level"
             exit 198
         }
-        local levels = substr(ustrtrim(`"`levels'"'), 2, .)
+        local levels = substr(ustrtrim(`"`macval(levels)'"'), 2, .)
         local cleaned ""
         foreach level of local levels {
-            local level = ustrlower(ustrtrim(`"`level'"'))
-            local cleaned `"`cleaned' "`level'""'
+            local level = ustrlower(ustrtrim(`"`macval(level)'"'))
+            local cleaned `"`macval(cleaned)' "`macval(level)'""'
         }
-        local cleaned = strtrim(`"`cleaned'"')
-        local level_count : word count `cleaned'
+        local cleaned = strtrim(`"`macval(cleaned)'"')
+        local level_count : word count `macval(cleaned)'
         if `level_count' < 2 {
-            display as error `"gracedr: categorical variable `name' needs at least 2 levels"'
+            display as error `"gracedr: categorical variable `macval(name)' "' ///
+                "needs at least 2 levels"
             exit 198
         }
         local repeated : list dups cleaned
-        if !missing(`"`repeated'"') {
-            display as error ///
-                `"gracedr: levels of `name' must be unique after trimming and lower-casing"'
+        if !missing(`"`macval(repeated)'"') {
+            display as error `"gracedr: levels of `macval(name)' must be unique "' ///
+                "after trimming and lower-casing"
             exit 198
         }
-        _gracedr_design_check_name `"`name'"'
+        _gracedr_design_check_name `"`macval(name)'"'
         local count = `count' + 1
-        local names "`names' `name'"
-        local types "`types' categorical"
-        local levels`count' `"`cleaned'"'
+        local names "`macval(names)' `macval(name)'"
+        local types "`macval(types)' categorical"
+        local levels`count' `"`macval(cleaned)'"'
     }
     foreach name of local continuous {
-        _gracedr_design_check_name `"`name'"'
+        _gracedr_design_check_name `"`macval(name)'"'
         local count = `count' + 1
-        local names "`names' `name'"
-        local types "`types' continuous"
+        local names "`macval(names)' `macval(name)'"
+        local types "`macval(types)' continuous"
         local levels`count' ""
     }
     local repeated : list dups names
-    if !missing("`repeated'") {
+    if !missing("`macval(repeated)'") {
         display as error "gracedr: balance variable names must be unique"
         exit 198
     }
@@ -244,10 +245,10 @@ program define _gracedr_design_parse_variables, rclass
         exit 198
     }
     return scalar nvars = `count'
-    return local varnames = strtrim("`names'")
-    return local vartypes = strtrim("`types'")
+    return local varnames = strtrim("`macval(names)'")
+    return local vartypes = strtrim("`macval(types)'")
     forvalues position = 1/`count' {
-        return local levels`position' `"`levels`position''"'
+        return local levels`position' `"`macval(levels`position')'"'
     }
 end
 
@@ -274,9 +275,9 @@ program define _gracedr_design_validate, rclass
     }
     local total = r(number)
     local arms : list clean arms
-    local arm_count : word count `arms'
+    local arm_count : word count `macval(arms)'
     local repeated : list dups arms
-    if `arm_count' < 2 | !missing(`"`repeated'"') {
+    if `arm_count' < 2 | !missing(`"`macval(repeated)'"') {
         display as error "gracedr: arms() must be at least 2 unique labels"
         exit 198
     }
@@ -294,12 +295,14 @@ program define _gracedr_design_validate, rclass
         exit 198
     }
     _gracedr_design_check_ratio "`ratio'"
-    _gracedr_design_parse_variables, categorical(`categorical') continuous(`continuous')
+    _gracedr_design_parse_variables, ///
+        categorical(`macval(categorical)') ///
+        continuous(`macval(continuous)')
     local variable_count = r(nvars)
-    local varnames `"`r(varnames)'"'
-    local vartypes `"`r(vartypes)'"'
+    mata: st_local("varnames", st_global("r(varnames)"))
+    mata: st_local("vartypes", st_global("r(vartypes)"))
     forvalues position = 1/`variable_count' {
-        local levels`position' `"`r(levels`position')'"'
+        mata: st_local("levels`position'", st_global("r(levels`position')"))
     }
     if missing(`"`pstar'"') {
         local pstar 0.30
@@ -356,7 +359,7 @@ program define _gracedr_design_validate, rclass
     foreach value of local weights {
         local scaled = real(`"`value'"') / `weight_total'
         local piece = strtrim(string(`scaled', "%21.15g"))
-        local normalized "`normalized' `piece'"
+        local normalized "`normalized' `macval(piece)'"
     }
     if missing(`"`runin'"') {
         _gracedr_design_compute_runin, n(`total') ratio(`ratio')
@@ -383,7 +386,7 @@ program define _gracedr_design_validate, rclass
         exit 198
     }
     return scalar n = `total'
-    return local arms `"`arms'"'
+    return local arms `"`macval(arms)'"'
     return local ratio `"`ratio'"'
     return local weights = strtrim("`normalized'")
     return scalar pstar = `pstar_value'
@@ -393,9 +396,9 @@ program define _gracedr_design_validate, rclass
     return local forcedat "`forced_sorted'"
     return scalar sizebound = `sizebound_value'
     return scalar nvars = `variable_count'
-    return local varnames `"`varnames'"'
-    return local vartypes `"`vartypes'"'
+    return local varnames `"`macval(varnames)'"'
+    return local vartypes `"`macval(vartypes)'"'
     forvalues position = 1/`variable_count' {
-        return local levels`position' `"`levels`position''"'
+        return local levels`position' `"`macval(levels`position')'"'
     }
 end
