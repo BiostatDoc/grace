@@ -1,9 +1,9 @@
 # gracedr for Stata
 
 This folder holds the Stata 19 version of graceDR. The design is in
-`docs/superpowers/specs/2026-11-13-stata-addition-design.md`. Right now it holds only the
-scaffolding: a placeholder `gracedr` command, a certification script, and the checks that run
-them.
+`docs/superpowers/specs/2026-11-13-stata-addition-design.md`. Right now it holds the
+scaffolding (a placeholder `gracedr` command and the checks that run the certification
+scripts) and the study folder helpers described below.
 
 ## Requirements
 
@@ -38,6 +38,19 @@ The root `make pre-pr` runs the R checks and then these. It fails on a machine w
 The batch runner writes `<do-file name>.log` in this folder. The top of a Stata log shows the
 license holder and serial number, so `run_stata.sh` prints only the part after the do-file starts,
 and logs are never committed.
+
+`make` from Rtools passes Stata almost no environment variables. `run_stata.ps1` restores
+`ComSpec`, `TEMP` and `TMP` before it starts Stata. Shell scripts here use bash globs and never
+call `find` or `sort`, which Rtools bash resolves to Windows programs.
+
+## Study files
+
+`_gracedr_study` reads and writes the datasets in a study folder. A write goes to `<name>.tmp`
+first, the current file is copied to `<name>.bak`, and the new file replaces it. Stata has no
+file rename, so the replacement is a copy. `_gracedr_utc` returns the UTC clock through
+the Windows PowerShell under `SYSTEMROOT`, because Stata has only local time. Both are certified in
+`cert/certify_study.do` and `cert/certify_utc.do`. Shared certification programs
+(`expect_failure`, `make_data`, `remove_folder`) are in `cert/helpers.do`.
 
 ## CI
 

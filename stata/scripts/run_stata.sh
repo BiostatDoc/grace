@@ -19,8 +19,14 @@ export GRACEDR_STATA_DIR="$(cygpath -m "$PWD")"
 log_file="$(basename "$1" .do).log"
 rm -f "$log_file"
 
-powershell -NoProfile -Command "Start-Process -FilePath '$stata_exe_win' \
-  -ArgumentList '/e','do','\"$do_file\"' -Wait -WorkingDirectory '$work_dir'"
+launcher="$(cygpath -w "$(cd "$(dirname "$0")" && pwd)/run_stata.ps1")"
+powershell \
+  -NoProfile \
+  -ExecutionPolicy Bypass \
+  -File "$launcher" \
+  -StataExe "$stata_exe_win" \
+  -DoFile "$do_file" \
+  -WorkDir "$work_dir"
 
 if [ ! -f "$log_file" ]; then
   echo "Stata wrote no log file $log_file" >&2
