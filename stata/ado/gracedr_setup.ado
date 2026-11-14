@@ -61,7 +61,6 @@ program define gracedr_setup, rclass
     forvalues position = 1/`variable_count' {
         local val_levels`position' `"`r(levels`position')'"'
     }
-    local arm_count : word count `val_arms'
     foreach name of local val_varnames {
         local reserved = inlist("`name'", "phase", "rngstate", "time", "study", "graphs")
         local reserved = `reserved' | regexm("`name'", "^prob[0-9]+$")
@@ -90,8 +89,8 @@ program define gracedr_setup, rclass
         _gracedr_codes using `"`codes'"', arms(`val_arms')
     }
     capture mkdir `"`folder'"'
-    mata: st_local("folder_found", strofreal(direxists(st_local("folder"))))
-    if `folder_found' == 0 {
+    _gracedr_study folder, study(`"`study'"')
+    if r(found) == 0 {
         display as error `"gracedr: could not create the study folder `study'"'
         exit 603
     }
@@ -118,10 +117,7 @@ program define gracedr_setup, rclass
             _gracedr_study empty, name(codes)
         }
         _gracedr_study write, study(`"`study'"') name(codes)
-        _gracedr_setup_participants, ///
-            varnames(`val_varnames') ///
-            vartypes(`val_vartypes') ///
-            arms(`arm_count')
+        _gracedr_study empty, name(participants) study(`"`study'"')
         _gracedr_study write, study(`"`study'"') name(participants)
         _gracedr_rng init, study(`"`study'"') seed(`seed')
         _gracedr_study append_audit, ///
@@ -145,31 +141,4 @@ program define gracedr_setup, rclass
             `"state.dta from `study' and run setup again."'
         exit `failure'
     }
-end
-
-program define _gracedr_setup_participants
-    syntax , VARNAMES(string) VARTYPES(string) ARMS(integer)
-    clear
-    generate long seq = .
-    generate str244 id = ""
-    local count : word count `varnames'
-    forvalues position = 1/`count' {
-        local name : word `position' of `varnames'
-        local type : word `position' of `vartypes'
-        if "`type'" == "categorical" {
-            generate str244 `name' = ""
-        }
-        else {
-            generate double `name' = .
-        }
-    }
-    generate str244 arm = ""
-    generate str244 code = ""
-    forvalues position = 1/`arms' {
-        generate double prob`position' = .
-    }
-    generate str16 phase = ""
-    generate strL rngstate = ""
-    generate double time = .
-    format time %tc
 end

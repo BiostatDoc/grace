@@ -67,7 +67,8 @@ order the options were typed in. Levels are trimmed and lower-cased.
 {pstd}
 Without {opt seed()}, setup picks a seed from the clock, shows it, and stores it in
 {cmd:state.dta}. A study keeps its own random number stream, so the seed and the stored state
-reproduce every draw.
+reproduce every draw. A seed taken from the clock is not secret, so give {opt seed()} yourself
+when the seed must not be guessable.
 
 {pstd}
 Arm labels and levels must not contain double quotes, backticks or dollar signs.

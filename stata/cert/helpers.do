@@ -36,8 +36,8 @@ end
 
 program define dir_exists, rclass
     args folder
-    mata: st_local("folder_found", strofreal(direxists(st_local("folder"))))
-    return scalar found = `folder_found'
+    _gracedr_study folder, study(`"`folder'"')
+    return scalar found = r(found)
 end
 
 program define remove_folder
@@ -58,10 +58,30 @@ end
 
 program define get_setting, rclass
     args folder name
-    preserve
-    _gracedr_study read, study(`"`folder'"') name(design)
-    quietly keep if name == "`name'"
-    assert _N == 1
-    return local value = value[1]
-    restore
+    _gracedr_study setting, study(`"`folder'"') name(`name')
+    return local value `"`r(value)'"'
+end
+
+program define write_codes_csv
+    args file
+    tempname handle
+    file open `handle' using "`file'", write text replace
+    file write `handle' "code,arm" _n
+    file write `handle' "007,A" _n
+    file write `handle' "008,B" _n
+    file write `handle' " 009 , A " _n
+    file write `handle' "0010,B" _n
+    file close `handle'
+end
+
+program define write_text_file
+    args file first_line second_line third_line
+    tempname handle
+    file open `handle' using "`file'", write text replace
+    foreach line in "`first_line'" "`second_line'" "`third_line'" {
+        if !missing("`line'") {
+            file write `handle' "`line'" _n
+        }
+    }
+    file close `handle'
 end

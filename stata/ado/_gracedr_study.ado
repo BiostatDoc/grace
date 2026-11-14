@@ -1,7 +1,7 @@
 program define _gracedr_study
     version 19
     gettoken subcommand 0 : 0, parse(" ,")
-    local known read write exists folder append_audit empty
+    local known read write exists folder setting append_audit empty
     local is_known : list subcommand in known
     if `is_known' == 0 | missing("`subcommand'") {
         display as error "gracedr: unknown study subcommand `subcommand'"
@@ -23,6 +23,8 @@ program define _gracedr_study_folder, rclass
     if substr(`"`folder'"', -1, 1) == ":" {
         local folder `"`folder'/"'
     }
+    mata: st_local("folder_found", strofreal(direxists(st_local("folder"))))
+    return scalar found = `folder_found'
     return local folder `"`folder'"'
 end
 
@@ -49,6 +51,42 @@ program define _gracedr_study_exists, rclass
     return scalar exists = fileexists(`"`folder'/design.dta"')
 end
 
+program define _gracedr_study_setting, rclass
+    syntax , STUDY(string) NAME(string)
+    local words : word count `name'
+    capture confirm name `name'
+    local valid_name = `words' == 1 & _rc == 0
+    if `valid_name' == 0 {
+        display as error "gracedr: setting names must be valid Stata names"
+        exit 198
+    }
+    _gracedr_study_folder, study(`"`study'"')
+    local folder `"`r(folder)'"'
+    _gracedr_study_require "`folder'" "`study'"
+    preserve
+    quietly use "`folder'/design.dta", clear
+    capture confirm variable name value
+    local intact = _rc == 0
+    if `intact' == 0 {
+        display as error "gracedr: design.dta is damaged: it needs the columns name and value"
+        exit 459
+    }
+    quietly keep if name == `"`name'"'
+    if _N == 1 {
+        mata: st_local("value", st_sdata(1, "value"))
+        restore
+        return local value `"`value'"'
+    }
+    else if _N == 0 {
+        display as error `"gracedr: design.dta has no setting named `name'"'
+        exit 111
+    }
+    else {
+        display as error `"gracedr: design.dta has more than one setting named `name'"'
+        exit 459
+    }
+end
+
 program define _gracedr_study_read
     syntax , STUDY(string) NAME(string)
     _gracedr_study_checkname "`name'"
@@ -67,8 +105,7 @@ program define _gracedr_study_write
     _gracedr_study_checkname "`name'"
     _gracedr_study_folder, study(`"`study'"')
     local folder `"`r(folder)'"'
-    mata: st_local("folder_found", strofreal(direxists(st_local("folder"))))
-    if `folder_found' == 0 {
+    if r(found) == 0 {
         display as error `"gracedr: study folder `study' does not exist"'
         exit 601
     }
@@ -92,7 +129,11 @@ program define _gracedr_study_write
 end
 
 program define _gracedr_study_empty
-    syntax , NAME(string)
+    syntax , NAME(string) [STUDY(string)]
+    if "`name'" == "participants" & missing(`"`study'"') {
+        display as error "gracedr: empty participants needs study()"
+        exit 198
+    }
     clear
     if "`name'" == "design" {
         generate str244 name = ""
@@ -115,6 +156,18 @@ program define _gracedr_study_empty
         generate strL old_code = ""
         generate strL new_code = ""
         generate strL reason = ""
+    }
+    else if "`name'" == "participants" {
+        _gracedr_study_setting, study(`"`study'"') name(varnames)
+        local varnames `"`r(value)'"'
+        _gracedr_study_setting, study(`"`study'"') name(vartypes)
+        local vartypes `"`r(value)'"'
+        _gracedr_study_setting, study(`"`study'"') name(arms)
+        local arm_count : word count `r(value)'
+        _gracedr_study_participants, ///
+            varnames(`varnames') ///
+            vartypes(`vartypes') ///
+            arms(`arm_count')
     }
     else if "`name'" == "state" {
         generate strL state = ""
@@ -168,4 +221,30 @@ program define _gracedr_study_append_audit
     }
     _gracedr_study_write, study(`"`study'"') name(audit)
     restore
+end
+
+program define _gracedr_study_participants
+    syntax , VARNAMES(string) VARTYPES(string) ARMS(integer)
+    generate long seq = .
+    generate str244 id = ""
+    local count : word count `varnames'
+    forvalues position = 1/`count' {
+        local name : word `position' of `varnames'
+        local type : word `position' of `vartypes'
+        if "`type'" == "categorical" {
+            generate str244 `name' = ""
+        }
+        else {
+            generate double `name' = .
+        }
+    }
+    generate str244 arm = ""
+    generate str244 code = ""
+    forvalues position = 1/`arms' {
+        generate double prob`position' = .
+    }
+    generate str16 phase = ""
+    generate strL rngstate = ""
+    generate double time = .
+    format time %tc
 end
